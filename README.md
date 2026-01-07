@@ -33,6 +33,7 @@ go get github.com/atlekbai/stateless
 package main
 
 import (
+    "context"
     "fmt"
     "github.com/atlekbai/stateless"
 )
@@ -56,15 +57,21 @@ func main() {
     // Configure states
     sm.Configure(Off).
         Permit(Toggle, On).
-        OnExit(func() { fmt.Println("Light turning on...") })
+        OnExit(func(ctx context.Context) error {
+            fmt.Println("Light turning on...")
+            return nil
+        })
 
     sm.Configure(On).
         Permit(Toggle, Off).
-        OnEntry(func() { fmt.Println("Light is on!") })
+        OnEntry(func(ctx context.Context) error {
+            fmt.Println("Light is on!")
+            return nil
+        })
 
     // Fire triggers
-    sm.Fire(Toggle) // Off -> On
-    sm.Fire(Toggle) // On -> Off
+    sm.Fire(Toggle, nil) // Off -> On
+    sm.Fire(Toggle, nil) // On -> Off
 }
 ```
 
@@ -104,8 +111,9 @@ sm.Configure(StateA).
 
 ```go
 sm.Configure(StateA).
-    InternalTransition(TriggerX, func() {
+    InternalTransition(TriggerX, func(ctx context.Context) error {
         // Action executed without state change
+        return nil
     })
 ```
 
@@ -125,17 +133,25 @@ sm.Configure(StateA).
 
 ```go
 sm.Configure(StateA).
-    OnEntry(func() {
+    OnEntry(func(ctx context.Context) error {
         fmt.Println("Entering StateA")
+        return nil
     }).
-    OnExit(func() {
+    OnExit(func(ctx context.Context) error {
         fmt.Println("Exiting StateA")
+        return nil
     }).
-    OnEntryFrom(TriggerX, func() {
+    OnEntryFrom(TriggerX, func(ctx context.Context) error {
         fmt.Println("Entered from TriggerX")
-    }).
-    OnEntryWithTransition(func(t stateless.Transition[State, Trigger]) {
+        return nil
+    })
+
+// For typed entry actions with transition info, use generic functions:
+stateless.OnEntryWithTransition[State, Trigger, stateless.NoArgs](
+    sm.Configure(StateA),
+    func(ctx context.Context, t stateless.Transition[State, Trigger, stateless.NoArgs]) error {
         fmt.Printf("Entered from %v\n", t.Source)
+        return nil
     })
 ```
 
@@ -162,9 +178,11 @@ type CallArgs struct {
 }
 
 // Use typed entry action with transition info
-stateless.OnEntryWithTransition[State, Trigger, CallArgs](sm.Configure(StateB),
-    func(t stateless.Transition[State, Trigger, CallArgs]) {
+stateless.OnEntryWithTransition[State, Trigger, CallArgs](
+    sm.Configure(StateB),
+    func(ctx context.Context, t stateless.Transition[State, Trigger, CallArgs]) error {
         fmt.Printf("Call from: %s\n", t.Args.CallerID)
+        return nil
     })
 
 // Fire with struct argument
@@ -175,29 +193,33 @@ sm.Fire(TriggerX, CallArgs{CallerID: "555-1234"})
 
 ```go
 sm.Configure(StateA).
-    OnActivate(func() {
+    OnActivate(func(ctx context.Context) error {
         fmt.Println("State machine activated in StateA")
+        return nil
     }).
-    OnDeactivate(func() {
+    OnDeactivate(func(ctx context.Context) error {
         fmt.Println("State machine deactivated in StateA")
+        return nil
     })
 
-sm.Activate()    // Calls OnActivate
-sm.Deactivate()  // Calls OnDeactivate
+sm.Activate(context.Background())    // Calls OnActivate
+sm.Deactivate(context.Background())  // Calls OnDeactivate
 ```
 
 ## Event Handlers
 
 ```go
-// Called when a transition occurs
-sm.OnTransitioned(func(t stateless.Transition[State, Trigger]) {
-    fmt.Printf("%v -> %v\n", t.Source, t.Destination)
-})
+// Called when a transition occurs (use generic function)
+stateless.OnTransitioned[State, Trigger, stateless.NoArgs](sm,
+    func(t stateless.Transition[State, Trigger, stateless.NoArgs]) {
+        fmt.Printf("%v -> %v\n", t.Source, t.Destination)
+    })
 
 // Called after all transition actions complete
-sm.OnTransitionCompleted(func(t stateless.Transition[State, Trigger]) {
-    fmt.Println("Transition completed")
-})
+stateless.OnTransitionCompleted[State, Trigger, stateless.NoArgs](sm,
+    func(t stateless.Transition[State, Trigger, stateless.NoArgs]) {
+        fmt.Println("Transition completed")
+    })
 
 // Handle unhandled triggers
 sm.OnUnhandledTrigger(func(state State, trigger Trigger, guards []string) {
@@ -270,13 +292,15 @@ fmt.Println(mermaid)
 
 ## Context Support
 
+All actions receive a `context.Context` parameter. Use `FireCtx` to pass a custom context:
+
 ```go
 import "context"
 
 ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 defer cancel()
 
-err := sm.FireCtx(ctx, TriggerX)
+err := sm.FireCtx(ctx, TriggerX, nil)
 ```
 
 ## Complete Example
@@ -285,6 +309,7 @@ err := sm.FireCtx(ctx, TriggerX)
 package main
 
 import (
+    "context"
     "fmt"
     "github.com/atlekbai/stateless"
     "github.com/atlekbai/stateless/graph"
@@ -319,7 +344,10 @@ func main() {
         Permit(CallConnected, Connected)
 
     sm.Configure(Connected).
-        OnEntry(func() { fmt.Println("Call connected!") }).
+        OnEntry(func(ctx context.Context) error {
+            fmt.Println("Call connected!")
+            return nil
+        }).
         Permit(HungUp, OffHook).
         Permit(PlacedOnHold, OnHold)
 
@@ -328,20 +356,21 @@ func main() {
         Permit(TakenOffHold, Connected).
         Permit(HungUp, OffHook)
 
-    sm.OnTransitioned(func(t stateless.Transition[PhoneState, PhoneTrigger]) {
-        fmt.Printf("Transitioned: %v -> %v\n", t.Source, t.Destination)
-    })
+    stateless.OnTransitioned[PhoneState, PhoneTrigger, stateless.NoArgs](sm,
+        func(t stateless.Transition[PhoneState, PhoneTrigger, stateless.NoArgs]) {
+            fmt.Printf("Transitioned: %v -> %v\n", t.Source, t.Destination)
+        })
 
     // Generate graph
     info := sm.GetInfo()
     fmt.Println(graph.UmlDotGraph(info))
 
     // Use the state machine
-    sm.Fire(CallDialed)
-    sm.Fire(CallConnected)
-    sm.Fire(PlacedOnHold)
-    sm.Fire(TakenOffHold)
-    sm.Fire(HungUp)
+    sm.Fire(CallDialed, nil)
+    sm.Fire(CallConnected, nil)
+    sm.Fire(PlacedOnHold, nil)
+    sm.Fire(TakenOffHold, nil)
+    sm.Fire(HungUp, nil)
 }
 ```
 
