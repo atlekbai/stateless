@@ -1,8 +1,8 @@
-# Plan: Unified OnEntry with Transition (Args as any)
+# Plan: Unified Actions with Transition (Args as any)
 
 ## Goal
 
-Simplify the API by having ONE `OnEntry` method that receives `Transition[S, T]` with `Args` as `any`. User does type assertion when needed.
+Simplify the API so all Fire()-triggered actions receive `Transition[S, T]` with `Args` as `any`. User does type assertion when needed.
 
 ## Current API (Multiple Variants)
 
@@ -22,7 +22,6 @@ stateless.OnEntryFromWithTransition[S, T, Args](config, trigger, func(ctx, t) er
 ```go
 sm := NewStateMachine[State, Trigger](initial)
 
-// Single OnEntry - receives Transition with Args as any
 sm.Configure(Assigned).
     Permit(StartWork, InProgress).
     PermitReentry(Assign).
@@ -33,16 +32,14 @@ sm.Configure(Assigned).
         }
         return nil
     }).
-    OnExit(func(ctx context.Context) error {
-        fmt.Println("Leaving Assigned")
+    OnExit(func(ctx context.Context, t Transition[State, Trigger]) error {
+        fmt.Println("Leaving Assigned, going to:", t.Destination)
         return nil
-    })
-
-// Simple case - no args needed
-sm.Configure(Open).
-    Permit(Assign, Assigned).
-    OnEntry(func(ctx context.Context, t Transition[State, Trigger]) error {
-        fmt.Println("Entered from:", t.Source)
+    }).
+    InternalTransition(LogEvent, func(ctx context.Context, t Transition[State, Trigger]) error {
+        if args, ok := t.Args.(LogArgs); ok {
+            fmt.Println("Log:", args.Message)
+        }
         return nil
     })
 ```
@@ -74,31 +71,28 @@ type Transition[TState, TTrigger comparable] struct {
 }
 ```
 
-### 4. Simplify OnEntry to single method
+### 4. OnEntry receives Transition
 
 ```go
-// Single unified OnEntry - receives Transition
 func (sc *StateConfiguration[S, T]) OnEntry(
     action func(ctx context.Context, t Transition[S, T]) error,
 ) *StateConfiguration[S, T]
 ```
 
-### 5. OnExit without args
+### 5. OnExit receives Transition
 
 ```go
-// OnExit - no transition info (exit trigger may differ)
 func (sc *StateConfiguration[S, T]) OnExit(
-    action func(ctx context.Context) error,
+    action func(ctx context.Context, t Transition[S, T]) error,
 ) *StateConfiguration[S, T]
 ```
 
-### 6. InternalTransition without args
+### 6. InternalTransition receives Transition
 
 ```go
-// InternalTransition - just context
 func (sc *StateConfiguration[S, T]) InternalTransition(
     trigger T,
-    action func(ctx context.Context) error,
+    action func(ctx context.Context, t Transition[S, T]) error,
 ) *StateConfiguration[S, T]
 ```
 
@@ -110,7 +104,7 @@ Remove:
 - `OnEntryFromWithTransition()` standalone function
 - `OnExitWithTransition()` standalone function
 
-### 8. OnActivate/OnDeactivate (no changes)
+### 8. OnActivate/OnDeactivate (no Transition - not triggered by Fire)
 
 ```go
 func (sc *StateConfiguration[S, T]) OnActivate(
@@ -124,13 +118,15 @@ func (sc *StateConfiguration[S, T]) OnDeactivate(
 
 ## Summary of Action Signatures
 
-| Method | Signature | Notes |
-|--------|-----------|-------|
-| `OnEntry` | `func(ctx, t Transition[S,T]) error` | Args is `any`, type assert if needed |
-| `OnExit` | `func(ctx) error` | No transition info |
-| `InternalTransition` | `func(ctx) error` | No transition info |
-| `OnActivate` | `func(ctx) error` | No transition |
-| `OnDeactivate` | `func(ctx) error` | No transition |
+| Method | Signature | Triggered by |
+|--------|-----------|--------------|
+| `OnEntry` | `func(ctx, t Transition[S,T]) error` | Fire() |
+| `OnExit` | `func(ctx, t Transition[S,T]) error` | Fire() |
+| `InternalTransition` | `func(ctx, t Transition[S,T]) error` | Fire() |
+| `OnActivate` | `func(ctx) error` | Activate() |
+| `OnDeactivate` | `func(ctx) error` | Deactivate() |
+
+**Consistent rule**: All actions triggered by `Fire()` receive `Transition`. Actions triggered by other methods (`Activate`/`Deactivate`) don't.
 
 ## Migration Example
 
@@ -142,6 +138,10 @@ sm.Configure(Open).
     Permit(Assign, Assigned).
     OnEntry(func(ctx context.Context) error {
         fmt.Println("Opened")
+        return nil
+    }).
+    OnExit(func(ctx context.Context) error {
+        fmt.Println("Leaving Open")
         return nil
     })
 
@@ -162,6 +162,10 @@ sm.Configure(Open).
     OnEntry(func(ctx context.Context, t Transition[State, Trigger]) error {
         fmt.Println("Opened, from:", t.Source)
         return nil
+    }).
+    OnExit(func(ctx context.Context, t Transition[State, Trigger]) error {
+        fmt.Println("Leaving Open, trigger:", t.Trigger)
+        return nil
     })
 
 sm.Configure(Assigned).
@@ -177,7 +181,7 @@ sm.Configure(Assigned).
 ## Files to Modify
 
 1. `transition.go` - Remove TArgs type parameter, Args becomes `any`
-2. `state_configuration.go` - Simplify OnEntry/OnExit signatures, remove OnEntryFrom etc.
+2. `state_configuration.go` - Update OnEntry/OnExit/InternalTransition signatures, remove OnEntryFrom etc.
 3. `state_machine.go` - Remove standalone generic functions
 4. `state_representation.go` - Update action storage/execution
 5. `action_behaviour.go` - Update entry/exit action types
@@ -190,13 +194,14 @@ sm.Configure(Assigned).
 
 1. **Args as `any`** - User does type assertion when needed
 2. **Keep `sm.Configure()`** - No extra type parameter needed
-3. **OnEntry receives Transition** - Has Source, Destination, Trigger, Args
-4. **OnExit/InternalTransition** - Just context, no transition info
+3. **All Fire()-triggered actions receive Transition** - OnEntry, OnExit, InternalTransition
+4. **OnActivate/OnDeactivate** - Just context (not triggered by Fire)
 5. **Remove OnEntryFrom** - Use `if t.Trigger == X` in OnEntry
 
 ## Benefits
 
 - Simpler API - no complex generics
+- Consistent pattern - Fire() actions get Transition
 - Keeps chaining working naturally
-- Backwards compatible pattern (type assertion is common in Go)
+- Type assertion is common Go pattern
 - No standalone generic functions needed
