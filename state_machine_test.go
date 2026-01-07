@@ -920,6 +920,32 @@ func TestGetInfo(t *testing.T) {
 	}
 }
 
+func TestGetInfo_ShouldReturnEntryActionWithTriggerName(t *testing.T) {
+	// ARRANGE
+	sm := NewStateMachine[State, Trigger](StateA)
+	sm.Configure(StateB).
+		OnEntryFrom(TriggerX, func() {})
+
+	// ACT
+	stateMachineInfo := sm.GetInfo()
+
+	// ASSERT
+	if len(stateMachineInfo.States) != 1 {
+		t.Fatalf("expected 1 state, got %d", len(stateMachineInfo.States))
+	}
+	stateInfo := stateMachineInfo.States[0]
+	if len(stateInfo.EntryActions) != 1 {
+		t.Fatalf("expected 1 entry action, got %d", len(stateInfo.EntryActions))
+	}
+	entryActionInfo := stateInfo.EntryActions[0]
+	if entryActionInfo.FromTrigger == nil {
+		t.Fatal("expected FromTrigger to be non-nil")
+	}
+	if entryActionInfo.FromTrigger != TriggerX {
+		t.Errorf("expected FromTrigger to be TriggerX, got %v", entryActionInfo.FromTrigger)
+	}
+}
+
 // String representation test
 
 func TestStateMachine_String(t *testing.T) {
