@@ -206,9 +206,10 @@ func (sc *StateConfiguration[TState, TTrigger]) InternalTransitionIf(
 	return sc
 }
 
-// OnEntryAction configures an action to be executed when entering this state.
+// OnEntry configures an action to be executed when entering this state.
 // For simple actions that don't need transition info, use this method.
-func (sc *StateConfiguration[TState, TTrigger]) OnEntryAction(action func()) *StateConfiguration[TState, TTrigger] {
+// For access to typed transition args, use OnEntryWithTransition instead.
+func (sc *StateConfiguration[TState, TTrigger]) OnEntry(action func()) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddEntryAction(
 		NewSyncEntryActionBehaviour[TState, TTrigger](
 			func(transition internalTransition[TState, TTrigger]) { action() },
@@ -218,9 +219,10 @@ func (sc *StateConfiguration[TState, TTrigger]) OnEntryAction(action func()) *St
 	return sc
 }
 
-// OnExitAction configures an action to be executed when exiting this state.
+// OnExit configures an action to be executed when exiting this state.
 // For simple actions that don't need transition info, use this method.
-func (sc *StateConfiguration[TState, TTrigger]) OnExitAction(action func()) *StateConfiguration[TState, TTrigger] {
+// For access to typed transition args, use OnExitWithTransition instead.
+func (sc *StateConfiguration[TState, TTrigger]) OnExit(action func()) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddExitAction(
 		NewSyncExitActionBehaviour[TState, TTrigger](
 			func(transition internalTransition[TState, TTrigger]) { action() },
@@ -278,16 +280,16 @@ func (sc *StateConfiguration[TState, TTrigger]) enforceNotIdentityTransition(des
 	}
 }
 
-// OnEntry is a generic function that configures a typed entry action.
+// OnEntryWithTransition is a generic function that configures a typed entry action.
 // Use this for type-safe access to transition args.
 //
 // Example:
 //
 //	type AssignArgs struct { Assignee string }
-//	OnEntry(sm.Configure(StateB), func(t Transition[State, Trigger, AssignArgs]) {
+//	OnEntryWithTransition(sm.Configure(StateB), func(t Transition[State, Trigger, AssignArgs]) {
 //	    fmt.Printf("Assigned to %s\n", t.Args.Assignee)
 //	})
-func OnEntry[TState, TTrigger comparable, TArgs any](
+func OnEntryWithTransition[TState, TTrigger comparable, TArgs any](
 	sc *StateConfiguration[TState, TTrigger],
 	action func(Transition[TState, TTrigger, TArgs]),
 ) *StateConfiguration[TState, TTrigger] {
@@ -303,15 +305,15 @@ func OnEntry[TState, TTrigger comparable, TArgs any](
 	return sc
 }
 
-// OnEntryFrom is a generic function that configures a typed entry action for a specific trigger.
+// OnEntryFromWithTransition is a generic function that configures a typed entry action for a specific trigger.
 //
 // Example:
 //
 //	type AssignArgs struct { Assignee string }
-//	OnEntryFrom(sm.Configure(StateB), TriggerAssign, func(t Transition[State, Trigger, AssignArgs]) {
+//	OnEntryFromWithTransition(sm.Configure(StateB), TriggerAssign, func(t Transition[State, Trigger, AssignArgs]) {
 //	    fmt.Printf("Assigned to %s\n", t.Args.Assignee)
 //	})
-func OnEntryFrom[TState, TTrigger comparable, TArgs any](
+func OnEntryFromWithTransition[TState, TTrigger comparable, TArgs any](
 	sc *StateConfiguration[TState, TTrigger],
 	trigger TTrigger,
 	action func(Transition[TState, TTrigger, TArgs]),
@@ -329,14 +331,14 @@ func OnEntryFrom[TState, TTrigger comparable, TArgs any](
 	return sc
 }
 
-// OnExit is a generic function that configures a typed exit action.
+// OnExitWithTransition is a generic function that configures a typed exit action.
 //
 // Example:
 //
-//	OnExit(sm.Configure(StateB), func(t Transition[State, Trigger, NoArgs]) {
+//	OnExitWithTransition(sm.Configure(StateB), func(t Transition[State, Trigger, NoArgs]) {
 //	    fmt.Printf("Exiting from %v\n", t.Source)
 //	})
-func OnExit[TState, TTrigger comparable, TArgs any](
+func OnExitWithTransition[TState, TTrigger comparable, TArgs any](
 	sc *StateConfiguration[TState, TTrigger],
 	action func(Transition[TState, TTrigger, TArgs]),
 ) *StateConfiguration[TState, TTrigger] {

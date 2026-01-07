@@ -80,10 +80,10 @@ func main() {
 		Permit(CallConnected, Connected)
 
 	sm.Configure(Connected).
-		OnEntryAction(func() {
+		OnEntry(func() {
 			fmt.Println("  -> Call connected!")
 		}).
-		OnExitAction(func() {
+		OnExit(func() {
 			fmt.Println("  -> Call ended.")
 		}).
 		Permit(LeftMessage, OffHook).

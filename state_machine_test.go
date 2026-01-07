@@ -184,7 +184,7 @@ func TestOnEntry(t *testing.T) {
 	entryCount := 0
 	sm := NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).Permit(TriggerX, StateB)
-	sm.Configure(StateB).OnEntryAction(func() {
+	sm.Configure(StateB).OnEntry(func() {
 		entryCount++
 	})
 
@@ -202,7 +202,7 @@ func TestOnExit(t *testing.T) {
 	sm := NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).
 		Permit(TriggerX, StateB).
-		OnExitAction(func() {
+		OnExit(func() {
 			exitCount++
 		})
 
@@ -221,7 +221,7 @@ func TestOnEntryWithTransition(t *testing.T) {
 	sm.Configure(StateA).Permit(TriggerX, StateB)
 
 	configB := sm.Configure(StateB)
-	OnEntry[State, Trigger, NoArgs](configB, func(transition Transition[State, Trigger, NoArgs]) {
+	OnEntryWithTransition[State, Trigger, NoArgs](configB, func(transition Transition[State, Trigger, NoArgs]) {
 		receivedTransition = transition
 	})
 
@@ -249,8 +249,8 @@ func TestOnEntryFrom(t *testing.T) {
 
 	configB := sm.Configure(StateB).
 		Permit(TriggerY, StateC)
-	OnEntryFrom[State, Trigger, NoArgs](configB, TriggerX, func(t Transition[State, Trigger, NoArgs]) { entryFromXCount++ })
-	OnEntryFrom[State, Trigger, NoArgs](configB, TriggerY, func(t Transition[State, Trigger, NoArgs]) { entryFromYCount++ })
+	OnEntryFromWithTransition[State, Trigger, NoArgs](configB, TriggerX, func(t Transition[State, Trigger, NoArgs]) { entryFromXCount++ })
+	OnEntryFromWithTransition[State, Trigger, NoArgs](configB, TriggerY, func(t Transition[State, Trigger, NoArgs]) { entryFromYCount++ })
 
 	sm.Configure(StateC).Permit(TriggerY, StateB)
 
@@ -288,8 +288,8 @@ func TestPermitReentry(t *testing.T) {
 	sm := NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).
 		PermitReentry(TriggerX).
-		OnEntryAction(func() { entryCount++ }).
-		OnExitAction(func() { exitCount++ })
+		OnEntry(func() { entryCount++ }).
+		OnExit(func() { exitCount++ })
 
 	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -357,8 +357,8 @@ func TestInternalTransition(t *testing.T) {
 		InternalTransition(TriggerX, func(transition internalTransition[State, Trigger]) {
 			actionCount++
 		}).
-		OnEntryAction(func() { entryCount++ }).
-		OnExitAction(func() { exitCount++ })
+		OnEntry(func() { entryCount++ }).
+		OnExit(func() { exitCount++ })
 
 	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -718,7 +718,7 @@ func TestFiringModeQueued(t *testing.T) {
 
 	sm.Configure(StateA).
 		Permit(TriggerX, StateB).
-		OnExitAction(func() {
+		OnExit(func() {
 			// Fire another trigger from within an exit action
 			go func() {
 				sm.Fire(TriggerY, nil)
@@ -792,7 +792,7 @@ func TestGetInfo(t *testing.T) {
 	sm := NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).
 		Permit(TriggerX, StateB).
-		OnEntryAction(func() {})
+		OnEntry(func() {})
 	sm.Configure(StateB).
 		Permit(TriggerY, StateA)
 
@@ -857,9 +857,9 @@ func TestOnEntry_TypedArgument(t *testing.T) {
 
 	sm.Configure(StateA).Permit(TriggerX, StateB)
 
-	// Configure state with typed entry action using generic OnEntry
+	// Configure state with typed entry action using OnEntryWithTransition
 	configB := sm.Configure(StateB)
-	OnEntry[State, Trigger, AssignArgs](configB, func(trans Transition[State, Trigger, AssignArgs]) {
+	OnEntryWithTransition[State, Trigger, AssignArgs](configB, func(trans Transition[State, Trigger, AssignArgs]) {
 		receivedArgs = trans.Args
 	})
 
@@ -882,7 +882,7 @@ func TestOnEntryFrom_TypedArgument(t *testing.T) {
 
 	// Configure state with typed entry action from specific trigger
 	configB := sm.Configure(StateB)
-	OnEntryFrom[State, Trigger, AssignArgs](configB, TriggerX, func(trans Transition[State, Trigger, AssignArgs]) {
+	OnEntryFromWithTransition[State, Trigger, AssignArgs](configB, TriggerX, func(trans Transition[State, Trigger, AssignArgs]) {
 		receivedArgs = trans.Args
 	})
 
@@ -902,7 +902,7 @@ func TestOnExit_TypedArgument(t *testing.T) {
 	sm := NewStateMachine[State, Trigger](StateA)
 
 	configA := sm.Configure(StateA).Permit(TriggerX, StateB)
-	OnExit[State, Trigger, AssignArgs](configA, func(trans Transition[State, Trigger, AssignArgs]) {
+	OnExitWithTransition[State, Trigger, AssignArgs](configA, func(trans Transition[State, Trigger, AssignArgs]) {
 		receivedArgs = trans.Args
 	})
 

@@ -141,7 +141,7 @@ func TestNewStateGraph(t *testing.T) {
 	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
 	sm.Configure(TestStateA).
 		Permit(TestTriggerX, TestStateB).
-		OnEntryAction(func() {})
+		OnEntry(func() {})
 	sm.Configure(TestStateB).
 		PermitReentry(TestTriggerY)
 
