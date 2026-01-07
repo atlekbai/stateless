@@ -591,3 +591,239 @@ func TestDotGraph_SimpleTransitionWithEscaping(t *testing.T) {
 		t.Errorf("Expected graph to contain escaped quote, got:\n%s", dotGraph)
 	}
 }
+
+// ================== Mermaid Graph Tests ==================
+
+func TestMermaidGraph_InitialTransition(t *testing.T) {
+	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
+	sm.Configure(TestStateA) // Configure state A so it appears in the graph
+
+	mermaidGraph := MermaidGraph(sm.GetInfo(), nil)
+
+	expected := "stateDiagram-v2\n[*] --> A"
+	if mermaidGraph != expected {
+		t.Errorf("Expected:\n%s\nGot:\n%s", expected, mermaidGraph)
+	}
+}
+
+func TestMermaidGraph_SimpleTransition(t *testing.T) {
+	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
+	sm.Configure(TestStateA).Permit(TestTriggerX, TestStateB)
+	sm.Configure(TestStateB)
+
+	mermaidGraph := MermaidGraph(sm.GetInfo(), nil)
+
+	// Should contain initial transition
+	if !strings.Contains(mermaidGraph, "[*] --> A") {
+		t.Errorf("Expected graph to contain initial transition, got:\n%s", mermaidGraph)
+	}
+	// Should contain A -> B transition
+	if !strings.Contains(mermaidGraph, "A --> B : X") {
+		t.Errorf("Expected graph to contain A --> B : X transition, got:\n%s", mermaidGraph)
+	}
+}
+
+func TestMermaidGraph_SimpleTransition_LeftToRight(t *testing.T) {
+	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
+	sm.Configure(TestStateA).Permit(TestTriggerX, TestStateB)
+	sm.Configure(TestStateB)
+
+	direction := LeftToRight
+	mermaidGraph := MermaidGraph(sm.GetInfo(), &direction)
+
+	// Should contain direction
+	if !strings.Contains(mermaidGraph, "direction LR") {
+		t.Errorf("Expected graph to contain direction LR, got:\n%s", mermaidGraph)
+	}
+	// Should contain transition
+	if !strings.Contains(mermaidGraph, "A --> B : X") {
+		t.Errorf("Expected graph to contain A --> B : X transition, got:\n%s", mermaidGraph)
+	}
+}
+
+func TestMermaidGraph_TwoSimpleTransitions(t *testing.T) {
+	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
+	sm.Configure(TestStateA).Permit(TestTriggerX, TestStateB)
+	sm.Configure(TestStateB).Permit(TestTriggerY, TestStateC)
+	sm.Configure(TestStateC)
+
+	mermaidGraph := MermaidGraph(sm.GetInfo(), nil)
+
+	// Should contain initial transition
+	if !strings.Contains(mermaidGraph, "[*] --> A") {
+		t.Errorf("Expected graph to contain initial transition, got:\n%s", mermaidGraph)
+	}
+	// Should contain A -> B transition
+	if !strings.Contains(mermaidGraph, "A --> B : X") {
+		t.Errorf("Expected graph to contain A --> B : X transition, got:\n%s", mermaidGraph)
+	}
+	// Should contain B -> C transition
+	if !strings.Contains(mermaidGraph, "B --> C : Y") {
+		t.Errorf("Expected graph to contain B --> C : Y transition, got:\n%s", mermaidGraph)
+	}
+}
+
+func TestMermaidGraph_WhenDiscriminatedByAnonymousGuard(t *testing.T) {
+	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
+	sm.Configure(TestStateA).PermitIf(TestTriggerX, TestStateB, func() bool { return true }, "anonymousGuard")
+	sm.Configure(TestStateB)
+
+	mermaidGraph := MermaidGraph(sm.GetInfo(), nil)
+
+	// Should contain transition with guard
+	if !strings.Contains(mermaidGraph, "A --> B : X [anonymousGuard]") {
+		t.Errorf("Expected graph to contain guarded transition, got:\n%s", mermaidGraph)
+	}
+}
+
+func TestMermaidGraph_WhenDiscriminatedByAnonymousGuardWithDescription(t *testing.T) {
+	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
+	sm.Configure(TestStateA).PermitIf(TestTriggerX, TestStateB, func() bool { return true }, "description")
+	sm.Configure(TestStateB)
+
+	mermaidGraph := MermaidGraph(sm.GetInfo(), nil)
+
+	// Should contain transition with guard description
+	if !strings.Contains(mermaidGraph, "A --> B : X [description]") {
+		t.Errorf("Expected graph to contain guarded transition with description, got:\n%s", mermaidGraph)
+	}
+}
+
+func TestMermaidGraph_DestinationStateIsDynamic(t *testing.T) {
+	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
+	sm.Configure(TestStateA).PermitDynamic(TestTriggerX, func() TestState {
+		return TestStateB
+	})
+	sm.Configure(TestStateB)
+
+	mermaidGraph := MermaidGraph(sm.GetInfo(), nil)
+
+	// Should contain decision node
+	if !strings.Contains(mermaidGraph, "state Decision1 <<choice>>") {
+		t.Errorf("Expected graph to contain decision node, got:\n%s", mermaidGraph)
+	}
+}
+
+func TestMermaidGraph_DestinationStateIsDynamicWithPossibleDestinations(t *testing.T) {
+	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
+	sm.Configure(TestStateA).PermitDynamic(
+		TestTriggerX,
+		func() TestState { return TestStateB },
+		stateless.DynamicStateInfo{DestinationState: "B", Criterion: "Going to B"},
+		stateless.DynamicStateInfo{DestinationState: "C", Criterion: "Going to C"},
+	)
+	sm.Configure(TestStateB)
+	sm.Configure(TestStateC)
+
+	mermaidGraph := MermaidGraph(sm.GetInfo(), nil)
+
+	// Should contain decision node
+	if !strings.Contains(mermaidGraph, "Decision1 <<choice>>") {
+		t.Errorf("Expected graph to contain decision node, got:\n%s", mermaidGraph)
+	}
+}
+
+func TestMermaidGraph_TransitionWithIgnore(t *testing.T) {
+	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
+	sm.Configure(TestStateA).
+		Permit(TestTriggerX, TestStateB).
+		Ignore(TestTriggerY)
+	sm.Configure(TestStateB)
+
+	mermaidGraph := MermaidGraph(sm.GetInfo(), nil)
+
+	// Should contain A -> B transition
+	if !strings.Contains(mermaidGraph, "A --> B : X") {
+		t.Errorf("Expected graph to contain A --> B : X transition, got:\n%s", mermaidGraph)
+	}
+	// Should contain ignore transition (self-loop)
+	if !strings.Contains(mermaidGraph, "A --> A : Y") {
+		t.Errorf("Expected graph to contain A --> A : Y (ignored) transition, got:\n%s", mermaidGraph)
+	}
+}
+
+func TestMermaidGraph_WithSubstate(t *testing.T) {
+	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
+	sm.Configure(TestStateA).Permit(TestTriggerX, TestStateB)
+	sm.Configure(TestStateB).Permit(TestTriggerY, TestStateC).SubstateOf(TestStateD)
+	sm.Configure(TestStateC).SubstateOf(TestStateD)
+	sm.Configure(TestStateD)
+
+	mermaidGraph := MermaidGraph(sm.GetInfo(), nil)
+
+	// Should contain superstate definition
+	if !strings.Contains(mermaidGraph, "state D {") {
+		t.Errorf("Expected graph to contain superstate D, got:\n%s", mermaidGraph)
+	}
+	// Should contain substates inside superstate
+	if !strings.Contains(mermaidGraph, "B") {
+		t.Errorf("Expected graph to contain substate B, got:\n%s", mermaidGraph)
+	}
+	if !strings.Contains(mermaidGraph, "C") {
+		t.Errorf("Expected graph to contain substate C, got:\n%s", mermaidGraph)
+	}
+}
+
+func TestMermaidGraph_StateNamesWithSpacesAreAliased(t *testing.T) {
+	stateA := "State A"
+	stateB := "State B"
+	triggerX := "Trigger X"
+
+	sm := stateless.NewStateMachine[string, string](stateA)
+	sm.Configure(stateA).Permit(triggerX, stateB)
+	sm.Configure(stateB)
+
+	mermaidGraph := MermaidGraph(sm.GetInfo(), nil)
+
+	// States with spaces should be sanitized and aliased
+	// The sanitized name should be used in transitions
+	if !strings.Contains(mermaidGraph, "StateA") || !strings.Contains(mermaidGraph, "StateB") {
+		t.Errorf("Expected graph to contain sanitized state names, got:\n%s", mermaidGraph)
+	}
+	// Should contain alias definitions
+	if !strings.Contains(mermaidGraph, ": State A") || !strings.Contains(mermaidGraph, ": State B") {
+		t.Errorf("Expected graph to contain alias definitions for states with spaces, got:\n%s", mermaidGraph)
+	}
+}
+
+func TestMermaidGraph_OnEntryWithNamedDelegateAction(t *testing.T) {
+	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
+	sm.Configure(TestStateA).Permit(TestTriggerX, TestStateB)
+	sm.Configure(TestStateB).OnEntry(func() {})
+
+	mermaidGraph := MermaidGraph(sm.GetInfo(), nil)
+
+	// Should contain initial transition
+	if !strings.Contains(mermaidGraph, "[*] --> A") {
+		t.Errorf("Expected graph to contain initial transition, got:\n%s", mermaidGraph)
+	}
+	// Should contain A -> B transition
+	if !strings.Contains(mermaidGraph, "A --> B : X") {
+		t.Errorf("Expected graph to contain A --> B : X transition, got:\n%s", mermaidGraph)
+	}
+}
+
+func TestMermaidGraph_InternalTransition(t *testing.T) {
+	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
+	sm.Configure(TestStateA).InternalTransition(TestTriggerX, func() {})
+
+	mermaidGraph := MermaidGraph(sm.GetInfo(), nil)
+
+	// Should contain self-loop for internal transition
+	if !strings.Contains(mermaidGraph, "A --> A : X") {
+		t.Errorf("Expected graph to contain A --> A : X internal transition, got:\n%s", mermaidGraph)
+	}
+}
+
+func TestMermaidGraph_OnEntryFromTrigger(t *testing.T) {
+	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
+	sm.Configure(TestStateA).Permit(TestTriggerX, TestStateB)
+	sm.Configure(TestStateB).OnEntryFrom(TestTriggerX, func() {})
+
+	mermaidGraph := MermaidGraph(sm.GetInfo(), nil)
+
+	// Should contain transition from A to B with trigger X
+	if !strings.Contains(mermaidGraph, "A --> B : X") {
+		t.Errorf("Expected graph to contain transition, got:\n%s", mermaidGraph)
+	}
+}
