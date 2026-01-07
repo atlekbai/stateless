@@ -217,7 +217,7 @@ func (sr *StateRepresentation[TState, TTrigger]) AddDeactivateAction(action Deac
 }
 
 // Enter executes entry actions for this state.
-func (sr *StateRepresentation[TState, TTrigger]) Enter(ctx context.Context, transition internalTransition[TState, TTrigger]) error {
+func (sr *StateRepresentation[TState, TTrigger]) Enter(ctx context.Context, transition Transition[TState, TTrigger]) error {
 	// Reentry - execute entry actions for this state only
 	if transition.Source == transition.Destination {
 		return sr.ExecuteEntryActions(ctx, transition)
@@ -227,7 +227,7 @@ func (sr *StateRepresentation[TState, TTrigger]) Enter(ctx context.Context, tran
 	if !sr.Includes(transition.Source) {
 		// For initial transitions, don't enter superstate (we're already in it)
 		// For regular transitions, enter superstate first
-		if sr.superstate != nil && !transition.isInitial {
+		if sr.superstate != nil && !transition.IsInitial() {
 			if err := sr.superstate.Enter(ctx, transition); err != nil {
 				return err
 			}
@@ -245,7 +245,7 @@ func (sr *StateRepresentation[TState, TTrigger]) Enter(ctx context.Context, tran
 }
 
 // Exit executes exit actions for this state.
-func (sr *StateRepresentation[TState, TTrigger]) Exit(ctx context.Context, transition internalTransition[TState, TTrigger]) error {
+func (sr *StateRepresentation[TState, TTrigger]) Exit(ctx context.Context, transition Transition[TState, TTrigger]) error {
 	if transition.Source == transition.Destination {
 		return sr.ExecuteExitActions(ctx, transition)
 	}
@@ -263,7 +263,7 @@ func (sr *StateRepresentation[TState, TTrigger]) Exit(ctx context.Context, trans
 }
 
 // ExecuteEntryActions executes all entry actions for this state.
-func (sr *StateRepresentation[TState, TTrigger]) ExecuteEntryActions(ctx context.Context, transition internalTransition[TState, TTrigger]) error {
+func (sr *StateRepresentation[TState, TTrigger]) ExecuteEntryActions(ctx context.Context, transition Transition[TState, TTrigger]) error {
 	for _, action := range sr.entryActions {
 		if err := action.Execute(ctx, transition); err != nil {
 			return err
@@ -273,7 +273,7 @@ func (sr *StateRepresentation[TState, TTrigger]) ExecuteEntryActions(ctx context
 }
 
 // ExecuteExitActions executes all exit actions for this state.
-func (sr *StateRepresentation[TState, TTrigger]) ExecuteExitActions(ctx context.Context, transition internalTransition[TState, TTrigger]) error {
+func (sr *StateRepresentation[TState, TTrigger]) ExecuteExitActions(ctx context.Context, transition Transition[TState, TTrigger]) error {
 	for _, action := range sr.exitActions {
 		if err := action.Execute(ctx, transition); err != nil {
 			return err

@@ -131,20 +131,20 @@ func (d *DynamicTriggerBehaviour[TState, TTrigger]) GetDestinationState(args any
 // InternalTriggerBehaviour represents an internal transition that doesn't exit/enter the state.
 type InternalTriggerBehaviour[TState, TTrigger comparable] interface {
 	TriggerBehaviour[TState, TTrigger]
-	Execute(ctx context.Context, transition internalTransition[TState, TTrigger]) error
+	Execute(ctx context.Context, transition Transition[TState, TTrigger]) error
 }
 
 // SyncInternalTriggerBehaviour represents a synchronous internal transition.
 type SyncInternalTriggerBehaviour[TState, TTrigger comparable] struct {
 	triggerBehaviourBase[TState, TTrigger]
-	internalAction func(ctx context.Context, transition internalTransition[TState, TTrigger]) error
+	internalAction func(ctx context.Context, transition Transition[TState, TTrigger]) error
 }
 
 // NewSyncInternalTriggerBehaviour creates a new synchronous internal trigger behaviour.
 func NewSyncInternalTriggerBehaviour[TState, TTrigger comparable](
 	trigger TTrigger,
 	guard TransitionGuard,
-	internalAction func(ctx context.Context, transition internalTransition[TState, TTrigger]) error,
+	internalAction func(ctx context.Context, transition Transition[TState, TTrigger]) error,
 ) *SyncInternalTriggerBehaviour[TState, TTrigger] {
 	return &SyncInternalTriggerBehaviour[TState, TTrigger]{
 		triggerBehaviourBase: triggerBehaviourBase[TState, TTrigger]{
@@ -156,7 +156,7 @@ func NewSyncInternalTriggerBehaviour[TState, TTrigger comparable](
 }
 
 // Execute executes the internal action.
-func (s *SyncInternalTriggerBehaviour[TState, TTrigger]) Execute(ctx context.Context, transition internalTransition[TState, TTrigger]) error {
+func (s *SyncInternalTriggerBehaviour[TState, TTrigger]) Execute(ctx context.Context, transition Transition[TState, TTrigger]) error {
 	if s.internalAction != nil {
 		return s.internalAction(ctx, transition)
 	}

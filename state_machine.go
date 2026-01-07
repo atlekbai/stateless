@@ -67,7 +67,7 @@ type queuedEvent[TState, TTrigger comparable] struct {
 
 // OnTransitionedEvent handles transition event callbacks.
 type OnTransitionedEvent[TState, TTrigger comparable] struct {
-	handlers []func(internalTransition[TState, TTrigger])
+	handlers []func(Transition[TState, TTrigger])
 	mutex    sync.RWMutex
 }
 
@@ -77,7 +77,7 @@ func NewOnTransitionedEvent[TState, TTrigger comparable]() *OnTransitionedEvent[
 }
 
 // Register adds a handler to the event.
-func (e *OnTransitionedEvent[TState, TTrigger]) Register(handler func(internalTransition[TState, TTrigger])) {
+func (e *OnTransitionedEvent[TState, TTrigger]) Register(handler func(Transition[TState, TTrigger])) {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 	e.handlers = append(e.handlers, handler)
@@ -91,7 +91,7 @@ func (e *OnTransitionedEvent[TState, TTrigger]) UnregisterAll() {
 }
 
 // Invoke calls all registered handlers.
-func (e *OnTransitionedEvent[TState, TTrigger]) Invoke(transition internalTransition[TState, TTrigger]) {
+func (e *OnTransitionedEvent[TState, TTrigger]) Invoke(transition Transition[TState, TTrigger]) {
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 	for _, handler := range e.handlers {
@@ -252,12 +252,7 @@ func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, trig
 		return nil
 
 	case InternalTriggerBehaviour[TState, TTrigger]:
-		transition := internalTransition[TState, TTrigger]{
-			Source:      source,
-			Destination: source,
-			Trigger:     trigger,
-			Args:        args,
-		}
+		transition := NewTransition(source, source, trigger, args)
 		// Internal transitions don't fire transition events
 		return behaviour.Execute(ctx, transition)
 
@@ -275,12 +270,7 @@ func (sm *StateMachine[TState, TTrigger]) executeTransition(
 	args any,
 	sourceRepresentation *StateRepresentation[TState, TTrigger],
 ) error {
-	transition := internalTransition[TState, TTrigger]{
-		Source:      source,
-		Destination: destination,
-		Trigger:     trigger,
-		Args:        args,
-	}
+	transition := NewTransition(source, destination, trigger, args)
 
 	// Execute exit actions
 	if err := sourceRepresentation.Exit(ctx, transition); err != nil {
@@ -308,12 +298,7 @@ func (sm *StateMachine[TState, TTrigger]) executeTransition(
 	}
 
 	// Fire transition completed event
-	finalTransition := internalTransition[TState, TTrigger]{
-		Source:      source,
-		Destination: sm.State(),
-		Trigger:     trigger,
-		Args:        args,
-	}
+	finalTransition := NewTransition(source, sm.State(), trigger, args)
 	sm.onTransitionCompletedEvent.Invoke(finalTransition)
 
 	return nil
@@ -336,13 +321,7 @@ func (sm *StateMachine[TState, TTrigger]) handleInitialTransitions(ctx context.C
 			return fmt.Errorf("initial transition target '%v' is not a substate of '%v'", initialTarget, currentState)
 		}
 
-		initialTransition := internalTransition[TState, TTrigger]{
-			Source:      currentState,
-			Destination: initialTarget,
-			Trigger:     trigger,
-			Args:        args,
-			isInitial:   true,
-		}
+		initialTransition := NewInitialTransition(currentState, initialTarget, trigger, args)
 
 		// Fire transition event for initial transition
 		sm.onTransitionedEvent.Invoke(initialTransition)
@@ -397,25 +376,13 @@ func (sm *StateMachine[TState, TTrigger]) OnUnhandledTrigger(action func(state T
 }
 
 // OnTransitioned registers a callback that will be called when a transition is completed.
-// The callback receives a typed Transition with the specified TArgs type.
-func OnTransitioned[TState, TTrigger comparable, TArgs any](
-	sm *StateMachine[TState, TTrigger],
-	action func(Transition[TState, TTrigger, TArgs]),
-) {
-	sm.onTransitionedEvent.Register(func(t internalTransition[TState, TTrigger]) {
-		action(toTypedTransition[TState, TTrigger, TArgs](t))
-	})
+func (sm *StateMachine[TState, TTrigger]) OnTransitioned(action func(Transition[TState, TTrigger])) {
+	sm.onTransitionedEvent.Register(action)
 }
 
 // OnTransitionCompleted registers a callback that will be called after all transition actions are executed.
-// The callback receives a typed Transition with the specified TArgs type.
-func OnTransitionCompleted[TState, TTrigger comparable, TArgs any](
-	sm *StateMachine[TState, TTrigger],
-	action func(Transition[TState, TTrigger, TArgs]),
-) {
-	sm.onTransitionCompletedEvent.Register(func(t internalTransition[TState, TTrigger]) {
-		action(toTypedTransition[TState, TTrigger, TArgs](t))
-	})
+func (sm *StateMachine[TState, TTrigger]) OnTransitionCompleted(action func(Transition[TState, TTrigger])) {
+	sm.onTransitionCompletedEvent.Register(action)
 }
 
 // UnregisterAllTransitionedCallbacks removes all OnTransitioned callbacks.
@@ -546,11 +513,7 @@ func (sm *StateMachine[TState, TTrigger]) createStateInfo(rep *StateRepresentati
 	// Gather entry actions
 	entryActions := make([]ActionInfo, len(rep.EntryActions()))
 	for i, action := range rep.EntryActions() {
-		var fromTrigger any
-		if ft := action.GetFromTrigger(); ft != nil {
-			fromTrigger = *ft
-		}
-		entryActions[i] = NewActionInfo(action.GetDescription(), fromTrigger)
+		entryActions[i] = NewActionInfo(action.GetDescription(), nil)
 	}
 
 	// Gather activate actions

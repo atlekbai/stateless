@@ -78,43 +78,54 @@ func NewBug(id int, title string) *Bug {
 
 	// Configure states
 	bug.sm.Configure(Open).
-		OnEntry(func(ctx context.Context) error { fmt.Printf("  Bug #%d is now open\n", bug.ID); return nil }).
+		OnEntry(func(ctx context.Context, t stateless.Transition[State, Trigger]) error {
+			fmt.Printf("  Bug #%d is now open\n", bug.ID)
+			return nil
+		}).
 		Permit(Assign, Assigned)
 
-	// Configure Assigned state with typed entry action
-	assignedConfig := bug.sm.Configure(Assigned).
+	// Configure Assigned state with typed entry action using type assertion
+	bug.sm.Configure(Assigned).
+		OnEntry(func(ctx context.Context, t stateless.Transition[State, Trigger]) error {
+			if args, ok := t.Args.(AssignArgs); ok {
+				bug.Assignee = args.Assignee
+				fmt.Printf("  Bug #%d assigned to: %s\n", bug.ID, args.Assignee)
+			}
+			return nil
+		}).
 		PermitReentry(Assign). // Can be reassigned
 		Permit(StartWork, InProgress)
 
-	stateless.OnEntryWithTransition[State, Trigger, AssignArgs](assignedConfig, func(ctx context.Context, t stateless.Transition[State, Trigger, AssignArgs]) error {
-		bug.Assignee = t.Args.Assignee
-		fmt.Printf("  Bug #%d assigned to: %s\n", bug.ID, t.Args.Assignee)
-		return nil
-	})
-
 	bug.sm.Configure(InProgress).
-		OnEntry(func(ctx context.Context) error { fmt.Printf("  Work started on bug #%d\n", bug.ID); return nil }).
+		OnEntry(func(ctx context.Context, t stateless.Transition[State, Trigger]) error {
+			fmt.Printf("  Work started on bug #%d\n", bug.ID)
+			return nil
+		}).
 		PermitIf(Resolve, Resolved, func() bool {
 			return bug.Assignee != ""
 		}, "Must have an assignee to resolve")
 
-	// Configure Resolved state with typed entry action
-	resolvedConfig := bug.sm.Configure(Resolved).
+	// Configure Resolved state with typed entry action using type assertion
+	bug.sm.Configure(Resolved).
+		OnEntry(func(ctx context.Context, t stateless.Transition[State, Trigger]) error {
+			if args, ok := t.Args.(ResolveArgs); ok {
+				bug.Resolution = args.Resolution
+				fmt.Printf("  Bug #%d resolved: %s\n", bug.ID, args.Resolution)
+			}
+			return nil
+		}).
 		Permit(Close, Closed).
 		Permit(Reopen, Reopened)
 
-	stateless.OnEntryWithTransition[State, Trigger, ResolveArgs](resolvedConfig, func(ctx context.Context, t stateless.Transition[State, Trigger, ResolveArgs]) error {
-		bug.Resolution = t.Args.Resolution
-		fmt.Printf("  Bug #%d resolved: %s\n", bug.ID, t.Args.Resolution)
-		return nil
-	})
-
 	bug.sm.Configure(Closed).
-		OnEntry(func(ctx context.Context) error { fmt.Printf("  Bug #%d closed\n", bug.ID); return nil }).
+		OnEntry(func(ctx context.Context, t stateless.Transition[State, Trigger]) error {
+			fmt.Printf("  Bug #%d closed\n", bug.ID)
+			return nil
+		}).
 		Permit(Reopen, Reopened)
 
 	bug.sm.Configure(Reopened).
-		OnEntry(func(ctx context.Context) error {
+		OnEntry(func(ctx context.Context, t stateless.Transition[State, Trigger]) error {
 			bug.Resolution = ""
 			fmt.Printf("  Bug #%d reopened\n", bug.ID)
 			return nil
@@ -122,7 +133,7 @@ func NewBug(id int, title string) *Bug {
 		Permit(Assign, Assigned)
 
 	// Set up event handlers
-	stateless.OnTransitioned[State, Trigger, stateless.NoArgs](bug.sm, func(t stateless.Transition[State, Trigger, stateless.NoArgs]) {
+	bug.sm.OnTransitioned(func(t stateless.Transition[State, Trigger]) {
 		fmt.Printf("  [Transition] %s -> %s (trigger: %s)\n", t.Source, t.Destination, t.Trigger)
 	})
 

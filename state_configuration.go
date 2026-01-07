@@ -206,10 +206,10 @@ func (sc *StateConfiguration[TState, TTrigger]) PermitDynamicArgsIf(
 // and re-entered, and entry/exit actions are not executed.
 func (sc *StateConfiguration[TState, TTrigger]) InternalTransition(
 	trigger TTrigger,
-	action func(ctx context.Context) error,
+	action func(ctx context.Context, t Transition[TState, TTrigger]) error,
 ) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddTriggerBehaviour(
-		NewSyncInternalTriggerBehaviour(trigger, EmptyTransitionGuard, func(ctx context.Context, t internalTransition[TState, TTrigger]) error { return action(ctx) }),
+		NewSyncInternalTriggerBehaviour(trigger, EmptyTransitionGuard, action),
 	)
 	return sc
 }
@@ -219,11 +219,11 @@ func (sc *StateConfiguration[TState, TTrigger]) InternalTransition(
 func (sc *StateConfiguration[TState, TTrigger]) InternalTransitionIf(
 	trigger TTrigger,
 	guard func() bool,
-	action func(ctx context.Context) error,
+	action func(ctx context.Context, t Transition[TState, TTrigger]) error,
 	guardDescription ...string,
 ) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddTriggerBehaviour(
-		NewSyncInternalTriggerBehaviour(trigger, NewTransitionGuard(guard, firstOrEmpty(guardDescription)), func(ctx context.Context, t internalTransition[TState, TTrigger]) error { return action(ctx) }),
+		NewSyncInternalTriggerBehaviour(trigger, NewTransitionGuard(guard, firstOrEmpty(guardDescription)), action),
 	)
 	return sc
 }
@@ -233,51 +233,37 @@ func (sc *StateConfiguration[TState, TTrigger]) InternalTransitionIf(
 func (sc *StateConfiguration[TState, TTrigger]) InternalTransitionIfArgs(
 	trigger TTrigger,
 	guard func(args any) bool,
-	action func(ctx context.Context) error,
+	action func(ctx context.Context, t Transition[TState, TTrigger]) error,
 	guardDescription ...string,
 ) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddTriggerBehaviour(
-		NewSyncInternalTriggerBehaviour(trigger, NewTransitionGuardWithArgs(guard, firstOrEmpty(guardDescription)), func(ctx context.Context, t internalTransition[TState, TTrigger]) error { return action(ctx) }),
+		NewSyncInternalTriggerBehaviour(trigger, NewTransitionGuardWithArgs(guard, firstOrEmpty(guardDescription)), action),
 	)
 	return sc
 }
 
 // OnEntry configures an action to be executed when entering this state.
-// For simple actions that don't need transition info, use this method.
-// For access to typed transition args, use OnEntryWithTransition instead.
-func (sc *StateConfiguration[TState, TTrigger]) OnEntry(action func(ctx context.Context) error) *StateConfiguration[TState, TTrigger] {
+// The action receives the transition information including source, destination, trigger, and args.
+// Use type assertion to access typed arguments:
+//
+//	OnEntry(func(ctx context.Context, t Transition[State, Trigger]) error {
+//	    if args, ok := t.Args.(MyArgs); ok {
+//	        // use args
+//	    }
+//	    return nil
+//	})
+func (sc *StateConfiguration[TState, TTrigger]) OnEntry(action func(ctx context.Context, t Transition[TState, TTrigger]) error) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddEntryAction(
-		NewSyncEntryActionBehaviour[TState, TTrigger](
-			func(ctx context.Context, transition internalTransition[TState, TTrigger]) error { return action(ctx) },
-			CreateInvocationInfo(action, ""),
-		),
-	)
-	return sc
-}
-
-// OnEntryFrom configures an action to be executed when entering this state from a specific trigger.
-// For simple actions that don't need transition info, use this method.
-// For access to typed transition args, use OnEntryFromWithTransition instead.
-func (sc *StateConfiguration[TState, TTrigger]) OnEntryFrom(trigger TTrigger, action func(ctx context.Context) error) *StateConfiguration[TState, TTrigger] {
-	sc.representation.AddEntryAction(
-		NewSyncEntryActionBehaviourFrom[TState, TTrigger](
-			trigger,
-			func(ctx context.Context, transition internalTransition[TState, TTrigger]) error { return action(ctx) },
-			CreateInvocationInfo(action, ""),
-		),
+		NewSyncEntryActionBehaviour[TState, TTrigger](action, CreateInvocationInfo(action, "")),
 	)
 	return sc
 }
 
 // OnExit configures an action to be executed when exiting this state.
-// For simple actions that don't need transition info, use this method.
-// For access to typed transition args, use OnExitWithTransition instead.
-func (sc *StateConfiguration[TState, TTrigger]) OnExit(action func(ctx context.Context) error) *StateConfiguration[TState, TTrigger] {
+// The action receives the transition information including source, destination, trigger, and args.
+func (sc *StateConfiguration[TState, TTrigger]) OnExit(action func(ctx context.Context, t Transition[TState, TTrigger]) error) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddExitAction(
-		NewSyncExitActionBehaviour[TState, TTrigger](
-			func(ctx context.Context, transition internalTransition[TState, TTrigger]) error { return action(ctx) },
-			CreateInvocationInfo(action, ""),
-		),
+		NewSyncExitActionBehaviour[TState, TTrigger](action, CreateInvocationInfo(action, "")),
 	)
 	return sc
 }
@@ -335,97 +321,4 @@ func (sc *StateConfiguration[TState, TTrigger]) enforceNotIdentityTransition(des
 	if sc.representation.UnderlyingState() == destinationState {
 		panic(fmt.Sprintf("permit() requires that the destination state is not equal to the source state. To accept a trigger without changing state, use either Ignore() or PermitReentry()"))
 	}
-}
-
-// OnEntryWithTransition is a generic function that configures a typed entry action.
-// Use this for type-safe access to transition args.
-//
-// Example:
-//
-//	type AssignArgs struct { Assignee string }
-//	OnEntryWithTransition(sm.Configure(StateB), func(ctx context.Context, t Transition[State, Trigger, AssignArgs]) error {
-//	    fmt.Printf("Assigned to %s\n", t.Args.Assignee)
-//	    return nil
-//	})
-func OnEntryWithTransition[TState, TTrigger comparable, TArgs any](
-	sc *StateConfiguration[TState, TTrigger],
-	action func(ctx context.Context, t Transition[TState, TTrigger, TArgs]) error,
-) *StateConfiguration[TState, TTrigger] {
-	sc.representation.AddEntryAction(
-		NewSyncEntryActionBehaviour[TState, TTrigger](
-			func(ctx context.Context, transition internalTransition[TState, TTrigger]) error {
-				typedTransition := toTypedTransition[TState, TTrigger, TArgs](transition)
-				return action(ctx, typedTransition)
-			},
-			CreateInvocationInfo(action, ""),
-		),
-	)
-	return sc
-}
-
-// OnEntryFromWithTransition is a generic function that configures a typed entry action for a specific trigger.
-//
-// Example:
-//
-//	type AssignArgs struct { Assignee string }
-//	OnEntryFromWithTransition(sm.Configure(StateB), TriggerAssign, func(ctx context.Context, t Transition[State, Trigger, AssignArgs]) error {
-//	    fmt.Printf("Assigned to %s\n", t.Args.Assignee)
-//	    return nil
-//	})
-func OnEntryFromWithTransition[TState, TTrigger comparable, TArgs any](
-	sc *StateConfiguration[TState, TTrigger],
-	trigger TTrigger,
-	action func(ctx context.Context, t Transition[TState, TTrigger, TArgs]) error,
-) *StateConfiguration[TState, TTrigger] {
-	sc.representation.AddEntryAction(
-		NewSyncEntryActionBehaviourFrom[TState, TTrigger](
-			trigger,
-			func(ctx context.Context, transition internalTransition[TState, TTrigger]) error {
-				typedTransition := toTypedTransition[TState, TTrigger, TArgs](transition)
-				return action(ctx, typedTransition)
-			},
-			CreateInvocationInfo(action, ""),
-		),
-	)
-	return sc
-}
-
-// OnExitWithTransition is a generic function that configures a typed exit action.
-//
-// Example:
-//
-//	OnExitWithTransition(sm.Configure(StateB), func(ctx context.Context, t Transition[State, Trigger, NoArgs]) error {
-//	    fmt.Printf("Exiting from %v\n", t.Source)
-//	    return nil
-//	})
-func OnExitWithTransition[TState, TTrigger comparable, TArgs any](
-	sc *StateConfiguration[TState, TTrigger],
-	action func(ctx context.Context, t Transition[TState, TTrigger, TArgs]) error,
-) *StateConfiguration[TState, TTrigger] {
-	sc.representation.AddExitAction(
-		NewSyncExitActionBehaviour[TState, TTrigger](
-			func(ctx context.Context, transition internalTransition[TState, TTrigger]) error {
-				typedTransition := toTypedTransition[TState, TTrigger, TArgs](transition)
-				return action(ctx, typedTransition)
-			},
-			CreateInvocationInfo(action, ""),
-		),
-	)
-	return sc
-}
-
-// InternalTransitionWithTransition configures an internal transition with typed transition info.
-// This is a package-level function because Go methods cannot have additional type parameters.
-func InternalTransitionWithTransition[TState, TTrigger comparable, TArgs any](
-	sc *StateConfiguration[TState, TTrigger],
-	trigger TTrigger,
-	action func(ctx context.Context, t Transition[TState, TTrigger, TArgs]) error,
-) *StateConfiguration[TState, TTrigger] {
-	sc.representation.AddTriggerBehaviour(
-		NewSyncInternalTriggerBehaviour(trigger, EmptyTransitionGuard, func(ctx context.Context, t internalTransition[TState, TTrigger]) error {
-			typedTransition := toTypedTransition[TState, TTrigger, TArgs](t)
-			return action(ctx, typedTransition)
-		}),
-	)
-	return sc
 }

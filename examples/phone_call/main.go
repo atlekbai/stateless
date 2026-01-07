@@ -81,11 +81,11 @@ func main() {
 		Permit(CallConnected, Connected)
 
 	sm.Configure(Connected).
-		OnEntry(func(ctx context.Context) error {
+		OnEntry(func(ctx context.Context, t stateless.Transition[State, Trigger]) error {
 			fmt.Println("  -> Call connected!")
 			return nil
 		}).
-		OnExit(func(ctx context.Context) error {
+		OnExit(func(ctx context.Context, t stateless.Transition[State, Trigger]) error {
 			fmt.Println("  -> Call ended.")
 			return nil
 		}).
@@ -99,7 +99,7 @@ func main() {
 		Permit(HungUp, OffHook)
 
 	// Subscribe to transitions
-	stateless.OnTransitioned[State, Trigger, stateless.NoArgs](sm, func(t stateless.Transition[State, Trigger, stateless.NoArgs]) {
+	sm.OnTransitioned(func(t stateless.Transition[State, Trigger]) {
 		fmt.Printf("  Transitioned from %s to %s via %s\n", t.Source, t.Destination, t.Trigger)
 	})
 

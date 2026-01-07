@@ -5,22 +5,20 @@ import "context"
 // EntryActionBehaviour represents an entry action for a state.
 type EntryActionBehaviour[TState, TTrigger comparable] interface {
 	// Execute executes the entry action.
-	Execute(ctx context.Context, transition internalTransition[TState, TTrigger]) error
+	Execute(ctx context.Context, transition Transition[TState, TTrigger]) error
 	// GetDescription returns the description of the action.
 	GetDescription() InvocationInfo
-	// GetFromTrigger returns the trigger this action is bound to (nil if not bound).
-	GetFromTrigger() *TTrigger
 }
 
 // SyncEntryActionBehaviour is a synchronous entry action.
 type SyncEntryActionBehaviour[TState, TTrigger comparable] struct {
-	action      func(ctx context.Context, transition internalTransition[TState, TTrigger]) error
+	action      func(ctx context.Context, transition Transition[TState, TTrigger]) error
 	description InvocationInfo
 }
 
 // NewSyncEntryActionBehaviour creates a new synchronous entry action.
 func NewSyncEntryActionBehaviour[TState, TTrigger comparable](
-	action func(ctx context.Context, transition internalTransition[TState, TTrigger]) error,
+	action func(ctx context.Context, transition Transition[TState, TTrigger]) error,
 	description InvocationInfo,
 ) *SyncEntryActionBehaviour[TState, TTrigger] {
 	return &SyncEntryActionBehaviour[TState, TTrigger]{
@@ -29,7 +27,7 @@ func NewSyncEntryActionBehaviour[TState, TTrigger comparable](
 	}
 }
 
-func (s *SyncEntryActionBehaviour[TState, TTrigger]) Execute(ctx context.Context, transition internalTransition[TState, TTrigger]) error {
+func (s *SyncEntryActionBehaviour[TState, TTrigger]) Execute(ctx context.Context, transition Transition[TState, TTrigger]) error {
 	if s.action != nil {
 		return s.action(ctx, transition)
 	}
@@ -40,56 +38,23 @@ func (s *SyncEntryActionBehaviour[TState, TTrigger]) GetDescription() Invocation
 	return s.description
 }
 
-func (s *SyncEntryActionBehaviour[TState, TTrigger]) GetFromTrigger() *TTrigger {
-	return nil
-}
-
-// SyncEntryActionBehaviourFrom is a synchronous entry action that only executes for a specific trigger.
-type SyncEntryActionBehaviourFrom[TState, TTrigger comparable] struct {
-	*SyncEntryActionBehaviour[TState, TTrigger]
-	trigger TTrigger
-}
-
-// NewSyncEntryActionBehaviourFrom creates a new synchronous entry action bound to a specific trigger.
-func NewSyncEntryActionBehaviourFrom[TState, TTrigger comparable](
-	trigger TTrigger,
-	action func(ctx context.Context, transition internalTransition[TState, TTrigger]) error,
-	description InvocationInfo,
-) *SyncEntryActionBehaviourFrom[TState, TTrigger] {
-	return &SyncEntryActionBehaviourFrom[TState, TTrigger]{
-		SyncEntryActionBehaviour: NewSyncEntryActionBehaviour(action, description),
-		trigger:                  trigger,
-	}
-}
-
-func (s *SyncEntryActionBehaviourFrom[TState, TTrigger]) Execute(ctx context.Context, transition internalTransition[TState, TTrigger]) error {
-	if transition.Trigger == s.trigger {
-		return s.SyncEntryActionBehaviour.Execute(ctx, transition)
-	}
-	return nil
-}
-
-func (s *SyncEntryActionBehaviourFrom[TState, TTrigger]) GetFromTrigger() *TTrigger {
-	return &s.trigger
-}
-
 // ExitActionBehaviour represents an exit action for a state.
 type ExitActionBehaviour[TState, TTrigger comparable] interface {
 	// Execute executes the exit action.
-	Execute(ctx context.Context, transition internalTransition[TState, TTrigger]) error
+	Execute(ctx context.Context, transition Transition[TState, TTrigger]) error
 	// GetDescription returns the description of the action.
 	GetDescription() InvocationInfo
 }
 
 // SyncExitActionBehaviour is a synchronous exit action.
 type SyncExitActionBehaviour[TState, TTrigger comparable] struct {
-	action      func(ctx context.Context, transition internalTransition[TState, TTrigger]) error
+	action      func(ctx context.Context, transition Transition[TState, TTrigger]) error
 	description InvocationInfo
 }
 
 // NewSyncExitActionBehaviour creates a new synchronous exit action.
 func NewSyncExitActionBehaviour[TState, TTrigger comparable](
-	action func(ctx context.Context, transition internalTransition[TState, TTrigger]) error,
+	action func(ctx context.Context, transition Transition[TState, TTrigger]) error,
 	description InvocationInfo,
 ) *SyncExitActionBehaviour[TState, TTrigger] {
 	return &SyncExitActionBehaviour[TState, TTrigger]{
@@ -98,7 +63,7 @@ func NewSyncExitActionBehaviour[TState, TTrigger comparable](
 	}
 }
 
-func (s *SyncExitActionBehaviour[TState, TTrigger]) Execute(ctx context.Context, transition internalTransition[TState, TTrigger]) error {
+func (s *SyncExitActionBehaviour[TState, TTrigger]) Execute(ctx context.Context, transition Transition[TState, TTrigger]) error {
 	if s.action != nil {
 		return s.action(ctx, transition)
 	}
