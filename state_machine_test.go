@@ -837,3 +837,116 @@ func TestInitialTransition(t *testing.T) {
 		t.Error("expected IsInitial to be true for initial transition")
 	}
 }
+
+// Typed OnEntryFrom tests
+
+func TestOnEntryFrom1_TypedArgument(t *testing.T) {
+	var receivedArg string
+	sm := NewStateMachine[State, Trigger](StateA)
+
+	// Create a typed trigger with one string argument
+	assignTrigger := NewTriggerWithParameters1[Trigger, string](TriggerX)
+
+	// Configure state with typed entry action
+	OnEntryFrom1(sm.Configure(StateB), assignTrigger, func(arg string) {
+		receivedArg = arg
+	})
+	sm.Configure(StateA).Permit(TriggerX, StateB)
+
+	// Fire with typed argument
+	err := sm.Fire(TriggerX, "hello")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if receivedArg != "hello" {
+		t.Errorf("expected 'hello', got '%s'", receivedArg)
+	}
+}
+
+func TestOnEntryFrom1WithTransition_TypedArgument(t *testing.T) {
+	var receivedArg string
+	var receivedSource, receivedDest State
+	sm := NewStateMachine[State, Trigger](StateA)
+
+	assignTrigger := NewTriggerWithParameters1[Trigger, string](TriggerX)
+
+	OnEntryFrom1WithTransition(sm.Configure(StateB), assignTrigger, func(arg string, trans Transition[State, Trigger]) {
+		receivedArg = arg
+		receivedSource = trans.Source
+		receivedDest = trans.Destination
+	})
+	sm.Configure(StateA).Permit(TriggerX, StateB)
+
+	err := sm.Fire(TriggerX, "world")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if receivedArg != "world" {
+		t.Errorf("expected 'world', got '%s'", receivedArg)
+	}
+	if receivedSource != StateA {
+		t.Errorf("expected source StateA, got %v", receivedSource)
+	}
+	if receivedDest != StateB {
+		t.Errorf("expected dest StateB, got %v", receivedDest)
+	}
+}
+
+func TestOnEntryFrom2_TypedArguments(t *testing.T) {
+	var receivedArg0 string
+	var receivedArg1 int
+	sm := NewStateMachine[State, Trigger](StateA)
+
+	assignTrigger := NewTriggerWithParameters2[Trigger, string, int](TriggerX)
+
+	OnEntryFrom2(sm.Configure(StateB), assignTrigger, func(arg0 string, arg1 int) {
+		receivedArg0 = arg0
+		receivedArg1 = arg1
+	})
+	sm.Configure(StateA).Permit(TriggerX, StateB)
+
+	err := sm.Fire(TriggerX, "test", 42)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if receivedArg0 != "test" {
+		t.Errorf("expected 'test', got '%s'", receivedArg0)
+	}
+	if receivedArg1 != 42 {
+		t.Errorf("expected 42, got %d", receivedArg1)
+	}
+}
+
+func TestOnEntryFrom3_TypedArguments(t *testing.T) {
+	var receivedArg0 string
+	var receivedArg1 int
+	var receivedArg2 bool
+	sm := NewStateMachine[State, Trigger](StateA)
+
+	assignTrigger := NewTriggerWithParameters3[Trigger, string, int, bool](TriggerX)
+
+	OnEntryFrom3(sm.Configure(StateB), assignTrigger, func(arg0 string, arg1 int, arg2 bool) {
+		receivedArg0 = arg0
+		receivedArg1 = arg1
+		receivedArg2 = arg2
+	})
+	sm.Configure(StateA).Permit(TriggerX, StateB)
+
+	err := sm.Fire(TriggerX, "foo", 123, true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if receivedArg0 != "foo" {
+		t.Errorf("expected 'foo', got '%s'", receivedArg0)
+	}
+	if receivedArg1 != 123 {
+		t.Errorf("expected 123, got %d", receivedArg1)
+	}
+	if receivedArg2 != true {
+		t.Errorf("expected true, got %v", receivedArg2)
+	}
+}
