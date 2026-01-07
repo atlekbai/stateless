@@ -918,3 +918,235 @@ func TestOnExit_TypedArgument(t *testing.T) {
 		t.Errorf("expected 'Charlie', got '%s'", receivedArgs.Assignee)
 	}
 }
+
+// Active states tests (ported from .NET Stateless)
+
+func TestWhenActivate(t *testing.T) {
+	sm := NewStateMachine[State, Trigger](StateA)
+
+	expectedOrdering := []string{"ActivatedC", "ActivatedA"}
+	actualOrdering := []string{}
+
+	sm.Configure(StateA).
+		SubstateOf(StateC).
+		OnActivate(func() { actualOrdering = append(actualOrdering, "ActivatedA") })
+
+	sm.Configure(StateC).
+		OnActivate(func() { actualOrdering = append(actualOrdering, "ActivatedC") })
+
+	// should not be called for activation
+	OnTransitioned[State, Trigger, NoArgs](sm, func(t Transition[State, Trigger, NoArgs]) {
+		actualOrdering = append(actualOrdering, "OnTransitioned")
+	})
+	OnTransitionCompleted[State, Trigger, NoArgs](sm, func(t Transition[State, Trigger, NoArgs]) {
+		actualOrdering = append(actualOrdering, "OnTransitionCompleted")
+	})
+
+	if err := sm.Activate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(expectedOrdering) != len(actualOrdering) {
+		t.Fatalf("expected %d events, got %d: %v", len(expectedOrdering), len(actualOrdering), actualOrdering)
+	}
+	for i := 0; i < len(expectedOrdering); i++ {
+		if expectedOrdering[i] != actualOrdering[i] {
+			t.Errorf("expected %s at index %d, got %s", expectedOrdering[i], i, actualOrdering[i])
+		}
+	}
+}
+
+func TestWhenActivateIsIdempotent(t *testing.T) {
+	sm := NewStateMachine[State, Trigger](StateA)
+
+	actualOrdering := []string{}
+
+	sm.Configure(StateA).
+		SubstateOf(StateC).
+		OnActivate(func() { actualOrdering = append(actualOrdering, "ActivatedA") })
+
+	sm.Configure(StateC).
+		OnActivate(func() { actualOrdering = append(actualOrdering, "ActivatedC") })
+
+	if err := sm.Activate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := sm.Activate(); err != nil {
+		t.Fatalf("unexpected error on second activate: %v", err)
+	}
+
+	if len(actualOrdering) != 2 {
+		t.Errorf("expected 2 events, got %d: %v", len(actualOrdering), actualOrdering)
+	}
+}
+
+func TestWhenDeactivate(t *testing.T) {
+	sm := NewStateMachine[State, Trigger](StateA)
+
+	expectedOrdering := []string{"DeactivatedA", "DeactivatedC"}
+	actualOrdering := []string{}
+
+	sm.Configure(StateA).
+		SubstateOf(StateC).
+		OnDeactivate(func() { actualOrdering = append(actualOrdering, "DeactivatedA") })
+
+	sm.Configure(StateC).
+		OnDeactivate(func() { actualOrdering = append(actualOrdering, "DeactivatedC") })
+
+	// should not be called for deactivation
+	OnTransitioned[State, Trigger, NoArgs](sm, func(t Transition[State, Trigger, NoArgs]) {
+		actualOrdering = append(actualOrdering, "OnTransitioned")
+	})
+	OnTransitionCompleted[State, Trigger, NoArgs](sm, func(t Transition[State, Trigger, NoArgs]) {
+		actualOrdering = append(actualOrdering, "OnTransitionCompleted")
+	})
+
+	if err := sm.Activate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := sm.Deactivate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(expectedOrdering) != len(actualOrdering) {
+		t.Fatalf("expected %d events, got %d: %v", len(expectedOrdering), len(actualOrdering), actualOrdering)
+	}
+	for i := 0; i < len(expectedOrdering); i++ {
+		if expectedOrdering[i] != actualOrdering[i] {
+			t.Errorf("expected %s at index %d, got %s", expectedOrdering[i], i, actualOrdering[i])
+		}
+	}
+}
+
+func TestWhenDeactivateIsIdempotent(t *testing.T) {
+	sm := NewStateMachine[State, Trigger](StateA)
+
+	actualOrdering := []string{}
+
+	sm.Configure(StateA).
+		SubstateOf(StateC).
+		OnDeactivate(func() { actualOrdering = append(actualOrdering, "DeactivatedA") })
+
+	sm.Configure(StateC).
+		OnDeactivate(func() { actualOrdering = append(actualOrdering, "DeactivatedC") })
+
+	if err := sm.Activate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := sm.Deactivate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	actualOrdering = []string{} // clear
+	if err := sm.Activate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(actualOrdering) != 0 {
+		t.Errorf("expected 0 events after re-activate (deactivate should be idempotent), got %d: %v", len(actualOrdering), actualOrdering)
+	}
+}
+
+func TestWhenTransitioning(t *testing.T) {
+	sm := NewStateMachine[State, Trigger](StateA)
+
+	expectedOrdering := []string{
+		"ActivatedA",
+		"ExitedA",
+		"OnTransitioned",
+		"EnteredB",
+		"OnTransitionCompleted",
+		"ExitedB",
+		"OnTransitioned",
+		"EnteredA",
+		"OnTransitionCompleted",
+	}
+
+	actualOrdering := []string{}
+
+	sm.Configure(StateA).
+		OnActivate(func() { actualOrdering = append(actualOrdering, "ActivatedA") }).
+		OnDeactivate(func() { actualOrdering = append(actualOrdering, "DeactivatedA") }).
+		OnEntry(func() { actualOrdering = append(actualOrdering, "EnteredA") }).
+		OnExit(func() { actualOrdering = append(actualOrdering, "ExitedA") }).
+		Permit(TriggerX, StateB)
+
+	sm.Configure(StateB).
+		OnActivate(func() { actualOrdering = append(actualOrdering, "ActivatedB") }).
+		OnDeactivate(func() { actualOrdering = append(actualOrdering, "DeactivatedB") }).
+		OnEntry(func() { actualOrdering = append(actualOrdering, "EnteredB") }).
+		OnExit(func() { actualOrdering = append(actualOrdering, "ExitedB") }).
+		Permit(TriggerY, StateA)
+
+	OnTransitioned[State, Trigger, NoArgs](sm, func(tr Transition[State, Trigger, NoArgs]) {
+		actualOrdering = append(actualOrdering, "OnTransitioned")
+	})
+	OnTransitionCompleted[State, Trigger, NoArgs](sm, func(tr Transition[State, Trigger, NoArgs]) {
+		actualOrdering = append(actualOrdering, "OnTransitionCompleted")
+	})
+
+	if err := sm.Activate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := sm.Fire(TriggerX, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := sm.Fire(TriggerY, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(expectedOrdering) != len(actualOrdering) {
+		t.Fatalf("expected %d events, got %d.\nExpected: %v\nActual: %v", len(expectedOrdering), len(actualOrdering), expectedOrdering, actualOrdering)
+	}
+	for i := 0; i < len(expectedOrdering); i++ {
+		if expectedOrdering[i] != actualOrdering[i] {
+			t.Errorf("expected %s at index %d, got %s", expectedOrdering[i], i, actualOrdering[i])
+		}
+	}
+}
+
+func TestWhenTransitioningWithinSameSuperstate(t *testing.T) {
+	sm := NewStateMachine[State, Trigger](StateA)
+
+	expectedOrdering := []string{
+		"ActivatedC",
+		"ActivatedA",
+	}
+
+	actualOrdering := []string{}
+
+	sm.Configure(StateA).
+		SubstateOf(StateC).
+		OnActivate(func() { actualOrdering = append(actualOrdering, "ActivatedA") }).
+		OnDeactivate(func() { actualOrdering = append(actualOrdering, "DeactivatedA") }).
+		Permit(TriggerX, StateB)
+
+	sm.Configure(StateB).
+		SubstateOf(StateC).
+		OnActivate(func() { actualOrdering = append(actualOrdering, "ActivatedB") }).
+		OnDeactivate(func() { actualOrdering = append(actualOrdering, "DeactivatedB") }).
+		Permit(TriggerY, StateA)
+
+	sm.Configure(StateC).
+		OnActivate(func() { actualOrdering = append(actualOrdering, "ActivatedC") }).
+		OnDeactivate(func() { actualOrdering = append(actualOrdering, "DeactivatedC") })
+
+	if err := sm.Activate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := sm.Fire(TriggerX, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := sm.Fire(TriggerY, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(expectedOrdering) != len(actualOrdering) {
+		t.Fatalf("expected %d events, got %d.\nExpected: %v\nActual: %v", len(expectedOrdering), len(actualOrdering), expectedOrdering, actualOrdering)
+	}
+	for i := 0; i < len(expectedOrdering); i++ {
+		if expectedOrdering[i] != actualOrdering[i] {
+			t.Errorf("expected %s at index %d, got %s", expectedOrdering[i], i, actualOrdering[i])
+		}
+	}
+}
