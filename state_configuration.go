@@ -82,6 +82,15 @@ func (sc *StateConfiguration[TState, TTrigger]) PermitReentryIf(trigger TTrigger
 	return sc
 }
 
+// PermitReentryIfArgs configures the state to re-enter itself when the specified trigger is fired,
+// if the guard condition (which receives args) is met. Entry and exit actions will be executed.
+func (sc *StateConfiguration[TState, TTrigger]) PermitReentryIfArgs(trigger TTrigger, guard func(args any) bool, guardDescription ...string) *StateConfiguration[TState, TTrigger] {
+	sc.representation.AddTriggerBehaviour(
+		NewReentryTriggerBehaviour(trigger, sc.representation.UnderlyingState(), NewTransitionGuardWithArgs(guard, firstOrEmpty(guardDescription))),
+	)
+	return sc
+}
+
 // Ignore configures the state to ignore the specified trigger.
 func (sc *StateConfiguration[TState, TTrigger]) Ignore(trigger TTrigger) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddTriggerBehaviour(
@@ -94,6 +103,14 @@ func (sc *StateConfiguration[TState, TTrigger]) Ignore(trigger TTrigger) *StateC
 func (sc *StateConfiguration[TState, TTrigger]) IgnoreIf(trigger TTrigger, guard func() bool, guardDescription ...string) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddTriggerBehaviour(
 		NewIgnoredTriggerBehaviour[TState](trigger, NewTransitionGuard(guard, firstOrEmpty(guardDescription))),
+	)
+	return sc
+}
+
+// IgnoreIfArgs configures the state to ignore the specified trigger if the guard condition (which receives args) is met.
+func (sc *StateConfiguration[TState, TTrigger]) IgnoreIfArgs(trigger TTrigger, guard func(args any) bool, guardDescription ...string) *StateConfiguration[TState, TTrigger] {
+	sc.representation.AddTriggerBehaviour(
+		NewIgnoredTriggerBehaviour[TState](trigger, NewTransitionGuardWithArgs(guard, firstOrEmpty(guardDescription))),
 	)
 	return sc
 }
@@ -206,6 +223,20 @@ func (sc *StateConfiguration[TState, TTrigger]) InternalTransitionIf(
 ) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddTriggerBehaviour(
 		NewSyncInternalTriggerBehaviour(trigger, NewTransitionGuard(guard, firstOrEmpty(guardDescription)), func(t internalTransition[TState, TTrigger]) { action() }),
+	)
+	return sc
+}
+
+// InternalTransitionIfArgs configures an internal transition where the state is not exited
+// and re-entered, if the guard condition (which receives args) is met.
+func (sc *StateConfiguration[TState, TTrigger]) InternalTransitionIfArgs(
+	trigger TTrigger,
+	guard func(args any) bool,
+	action func(),
+	guardDescription ...string,
+) *StateConfiguration[TState, TTrigger] {
+	sc.representation.AddTriggerBehaviour(
+		NewSyncInternalTriggerBehaviour(trigger, NewTransitionGuardWithArgs(guard, firstOrEmpty(guardDescription)), func(t internalTransition[TState, TTrigger]) { action() }),
 	)
 	return sc
 }
