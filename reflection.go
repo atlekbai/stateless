@@ -6,24 +6,12 @@ import (
 	"strings"
 )
 
-// Timing indicates whether a method is synchronous or asynchronous.
-type Timing int
-
-const (
-	// TimingSynchronous indicates the method is synchronous.
-	TimingSynchronous Timing = iota
-	// TimingAsynchronous indicates the method is asynchronous.
-	TimingAsynchronous
-)
-
 // InvocationInfo describes a method - either an action or a guard condition.
 type InvocationInfo struct {
 	// MethodName is the name of the invoked method.
 	MethodName string
 	// description is the user-specified description (can be empty).
 	description string
-	// timing indicates if the method is synchronous or asynchronous.
-	timing Timing
 }
 
 // DefaultFunctionDescription is the text returned for compiler-generated functions
@@ -34,18 +22,17 @@ var DefaultFunctionDescription = "Function"
 const NullString = "<null>"
 
 // NewInvocationInfo creates a new InvocationInfo.
-func NewInvocationInfo(methodName, description string, timing Timing) InvocationInfo {
+func NewInvocationInfo(methodName, description string) InvocationInfo {
 	return InvocationInfo{
 		MethodName:  methodName,
 		description: description,
-		timing:      timing,
 	}
 }
 
 // CreateInvocationInfo creates InvocationInfo from a function and description.
-func CreateInvocationInfo(fn any, description string, timing Timing) InvocationInfo {
+func CreateInvocationInfo(fn any, description string) InvocationInfo {
 	methodName := getFunctionName(fn)
-	return NewInvocationInfo(methodName, description, timing)
+	return NewInvocationInfo(methodName, description)
 }
 
 // Description returns the description of the invoked method.
@@ -65,11 +52,6 @@ func (i InvocationInfo) Description() string {
 		return DefaultFunctionDescription
 	}
 	return i.MethodName
-}
-
-// IsAsync returns true if the method is invoked asynchronously.
-func (i InvocationInfo) IsAsync() bool {
-	return i.timing == TimingAsynchronous
 }
 
 // getFunctionName returns the name of a function.

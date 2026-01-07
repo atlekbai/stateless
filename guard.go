@@ -50,7 +50,7 @@ func NewTransitionGuard(guard func() bool, description string) TransitionGuard {
 	}
 	return TransitionGuard{
 		Conditions: []GuardCondition{
-			NewGuardCondition(guard, CreateInvocationInfo(guard, description, TimingSynchronous)),
+			NewGuardCondition(guard, CreateInvocationInfo(guard, description)),
 		},
 	}
 }
@@ -62,7 +62,7 @@ func NewTransitionGuardWithArgs(guard func(args any) bool, description string) T
 	}
 	return TransitionGuard{
 		Conditions: []GuardCondition{
-			NewGuardConditionWithArgs(guard, CreateInvocationInfo(guard, description, TimingSynchronous)),
+			NewGuardConditionWithArgs(guard, CreateInvocationInfo(guard, description)),
 		},
 	}
 }
@@ -77,7 +77,7 @@ func NewTransitionGuardFromTuples(guards []struct {
 	}
 	conditions := make([]GuardCondition, len(guards))
 	for i, g := range guards {
-		conditions[i] = NewGuardCondition(g.Guard, CreateInvocationInfo(g.Guard, g.Description, TimingSynchronous))
+		conditions[i] = NewGuardCondition(g.Guard, CreateInvocationInfo(g.Guard, g.Description))
 	}
 	return TransitionGuard{Conditions: conditions}
 }
@@ -93,7 +93,7 @@ func NewTransitionGuardFromTuplesWithArgs(guards []struct {
 	}
 	conditions := make([]GuardCondition, len(guards))
 	for i, g := range guards {
-		conditions[i] = NewGuardConditionWithArgs(g.Guard, CreateInvocationInfo(g.Guard, g.Description, TimingSynchronous))
+		conditions[i] = NewGuardConditionWithArgs(g.Guard, CreateInvocationInfo(g.Guard, g.Description))
 	}
 	return TransitionGuard{Conditions: conditions}
 }

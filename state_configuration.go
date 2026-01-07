@@ -118,7 +118,7 @@ func (sc *StateConfiguration[TState, TTrigger]) PermitDynamic(
 			Trigger:         NewTriggerInfo(trigger),
 			GuardConditions: nil,
 		},
-		DestinationStateSelectorDescription: CreateInvocationInfo(destinationSelector, "", TimingSynchronous),
+		DestinationStateSelectorDescription: CreateInvocationInfo(destinationSelector, ""),
 		PossibleDestinationStates:           possibleDestinations,
 	}
 	sc.representation.AddTriggerBehaviour(
@@ -139,7 +139,7 @@ func (sc *StateConfiguration[TState, TTrigger]) PermitDynamicArgs(
 			Trigger:         NewTriggerInfo(trigger),
 			GuardConditions: nil,
 		},
-		DestinationStateSelectorDescription: CreateInvocationInfo(destinationSelector, "", TimingSynchronous),
+		DestinationStateSelectorDescription: CreateInvocationInfo(destinationSelector, ""),
 		PossibleDestinationStates:           possibleDestinations,
 	}
 	sc.representation.AddTriggerBehaviour(
@@ -163,9 +163,9 @@ func (sc *StateConfiguration[TState, TTrigger]) PermitDynamicIf(
 	info := DynamicTransitionInfo{
 		transitionInfoBase: transitionInfoBase{
 			Trigger:         NewTriggerInfo(trigger),
-			GuardConditions: []InvocationInfo{CreateInvocationInfo(guard, desc, TimingSynchronous)},
+			GuardConditions: []InvocationInfo{CreateInvocationInfo(guard, desc)},
 		},
-		DestinationStateSelectorDescription: CreateInvocationInfo(destinationSelector, "", TimingSynchronous),
+		DestinationStateSelectorDescription: CreateInvocationInfo(destinationSelector, ""),
 	}
 	sc.representation.AddTriggerBehaviour(
 		NewDynamicTriggerBehaviour(trigger, func(args any) TState { return destinationSelector() }, NewTransitionGuard(guard, desc), info),
@@ -188,9 +188,9 @@ func (sc *StateConfiguration[TState, TTrigger]) PermitDynamicArgsIf(
 	info := DynamicTransitionInfo{
 		transitionInfoBase: transitionInfoBase{
 			Trigger:         NewTriggerInfo(trigger),
-			GuardConditions: []InvocationInfo{CreateInvocationInfo(guard, desc, TimingSynchronous)},
+			GuardConditions: []InvocationInfo{CreateInvocationInfo(guard, desc)},
 		},
-		DestinationStateSelectorDescription: CreateInvocationInfo(destinationSelector, "", TimingSynchronous),
+		DestinationStateSelectorDescription: CreateInvocationInfo(destinationSelector, ""),
 	}
 	sc.representation.AddTriggerBehaviour(
 		NewDynamicTriggerBehaviour(trigger, destinationSelector, NewTransitionGuardWithArgs(guard, desc), info),
@@ -235,7 +235,7 @@ func (sc *StateConfiguration[TState, TTrigger]) OnEntry(action func()) *StateCon
 	sc.representation.AddEntryAction(
 		NewSyncEntryActionBehaviour[TState, TTrigger](
 			func(transition internalTransition[TState, TTrigger]) { action() },
-			CreateInvocationInfo(action, "", TimingSynchronous),
+			CreateInvocationInfo(action, ""),
 		),
 	)
 	return sc
@@ -249,7 +249,7 @@ func (sc *StateConfiguration[TState, TTrigger]) OnEntryFrom(trigger TTrigger, ac
 		NewSyncEntryActionBehaviourFrom[TState, TTrigger](
 			trigger,
 			func(transition internalTransition[TState, TTrigger]) { action() },
-			CreateInvocationInfo(action, "", TimingSynchronous),
+			CreateInvocationInfo(action, ""),
 		),
 	)
 	return sc
@@ -262,7 +262,7 @@ func (sc *StateConfiguration[TState, TTrigger]) OnExit(action func()) *StateConf
 	sc.representation.AddExitAction(
 		NewSyncExitActionBehaviour[TState, TTrigger](
 			func(transition internalTransition[TState, TTrigger]) { action() },
-			CreateInvocationInfo(action, "", TimingSynchronous),
+			CreateInvocationInfo(action, ""),
 		),
 	)
 	return sc
@@ -272,7 +272,7 @@ func (sc *StateConfiguration[TState, TTrigger]) OnExit(action func()) *StateConf
 // and this state is the current state.
 func (sc *StateConfiguration[TState, TTrigger]) OnActivate(action func()) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddActivateAction(
-		NewSyncActivateActionBehaviour(sc.representation.UnderlyingState(), action, CreateInvocationInfo(action, "", TimingSynchronous)),
+		NewSyncActivateActionBehaviour(sc.representation.UnderlyingState(), action, CreateInvocationInfo(action, "")),
 	)
 	return sc
 }
@@ -281,7 +281,7 @@ func (sc *StateConfiguration[TState, TTrigger]) OnActivate(action func()) *State
 // and this state is the current state.
 func (sc *StateConfiguration[TState, TTrigger]) OnDeactivate(action func()) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddDeactivateAction(
-		NewSyncDeactivateActionBehaviour(sc.representation.UnderlyingState(), action, CreateInvocationInfo(action, "", TimingSynchronous)),
+		NewSyncDeactivateActionBehaviour(sc.representation.UnderlyingState(), action, CreateInvocationInfo(action, "")),
 	)
 	return sc
 }
@@ -342,7 +342,7 @@ func OnEntryWithTransition[TState, TTrigger comparable, TArgs any](
 				typedTransition := toTypedTransition[TState, TTrigger, TArgs](transition)
 				action(typedTransition)
 			},
-			CreateInvocationInfo(action, "", TimingSynchronous),
+			CreateInvocationInfo(action, ""),
 		),
 	)
 	return sc
@@ -368,7 +368,7 @@ func OnEntryFromWithTransition[TState, TTrigger comparable, TArgs any](
 				typedTransition := toTypedTransition[TState, TTrigger, TArgs](transition)
 				action(typedTransition)
 			},
-			CreateInvocationInfo(action, "", TimingSynchronous),
+			CreateInvocationInfo(action, ""),
 		),
 	)
 	return sc
@@ -391,7 +391,7 @@ func OnExitWithTransition[TState, TTrigger comparable, TArgs any](
 				typedTransition := toTypedTransition[TState, TTrigger, TArgs](transition)
 				action(typedTransition)
 			},
-			CreateInvocationInfo(action, "", TimingSynchronous),
+			CreateInvocationInfo(action, ""),
 		),
 	)
 	return sc
