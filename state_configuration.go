@@ -10,6 +10,14 @@ type StateConfiguration[TState, TTrigger comparable] struct {
 	lookup         func(TState) *StateRepresentation[TState, TTrigger]
 }
 
+// firstOrEmpty returns the first element of the slice or empty string if empty.
+func firstOrEmpty(s []string) string {
+	if len(s) > 0 {
+		return s[0]
+	}
+	return ""
+}
+
 // NewStateConfiguration creates a new state configuration.
 func NewStateConfiguration[TState, TTrigger comparable](
 	representation *StateRepresentation[TState, TTrigger],
@@ -40,12 +48,8 @@ func (sc *StateConfiguration[TState, TTrigger]) Permit(trigger TTrigger, destina
 // when the specified trigger is fired, if the guard condition is met.
 func (sc *StateConfiguration[TState, TTrigger]) PermitIf(trigger TTrigger, destinationState TState, guard func() bool, guardDescription ...string) *StateConfiguration[TState, TTrigger] {
 	sc.enforceNotIdentityTransition(destinationState)
-	desc := ""
-	if len(guardDescription) > 0 {
-		desc = guardDescription[0]
-	}
 	sc.representation.AddTriggerBehaviour(
-		NewTransitioningTriggerBehaviour(trigger, destinationState, NewTransitionGuard(guard, desc)),
+		NewTransitioningTriggerBehaviour(trigger, destinationState, NewTransitionGuard(guard, firstOrEmpty(guardDescription))),
 	)
 	return sc
 }
@@ -54,12 +58,8 @@ func (sc *StateConfiguration[TState, TTrigger]) PermitIf(trigger TTrigger, desti
 // when the specified trigger is fired, if the guard condition (which receives args) is met.
 func (sc *StateConfiguration[TState, TTrigger]) PermitIfArgs(trigger TTrigger, destinationState TState, guard func(args any) bool, guardDescription ...string) *StateConfiguration[TState, TTrigger] {
 	sc.enforceNotIdentityTransition(destinationState)
-	desc := ""
-	if len(guardDescription) > 0 {
-		desc = guardDescription[0]
-	}
 	sc.representation.AddTriggerBehaviour(
-		NewTransitioningTriggerBehaviour(trigger, destinationState, NewTransitionGuardWithArgs(guard, desc)),
+		NewTransitioningTriggerBehaviour(trigger, destinationState, NewTransitionGuardWithArgs(guard, firstOrEmpty(guardDescription))),
 	)
 	return sc
 }
@@ -76,12 +76,8 @@ func (sc *StateConfiguration[TState, TTrigger]) PermitReentry(trigger TTrigger) 
 // PermitReentryIf configures the state to re-enter itself when the specified trigger is fired,
 // if the guard condition is met. Entry and exit actions will be executed.
 func (sc *StateConfiguration[TState, TTrigger]) PermitReentryIf(trigger TTrigger, guard func() bool, guardDescription ...string) *StateConfiguration[TState, TTrigger] {
-	desc := ""
-	if len(guardDescription) > 0 {
-		desc = guardDescription[0]
-	}
 	sc.representation.AddTriggerBehaviour(
-		NewReentryTriggerBehaviour(trigger, sc.representation.UnderlyingState(), NewTransitionGuard(guard, desc)),
+		NewReentryTriggerBehaviour(trigger, sc.representation.UnderlyingState(), NewTransitionGuard(guard, firstOrEmpty(guardDescription))),
 	)
 	return sc
 }
@@ -96,12 +92,8 @@ func (sc *StateConfiguration[TState, TTrigger]) Ignore(trigger TTrigger) *StateC
 
 // IgnoreIf configures the state to ignore the specified trigger if the guard condition is met.
 func (sc *StateConfiguration[TState, TTrigger]) IgnoreIf(trigger TTrigger, guard func() bool, guardDescription ...string) *StateConfiguration[TState, TTrigger] {
-	desc := ""
-	if len(guardDescription) > 0 {
-		desc = guardDescription[0]
-	}
 	sc.representation.AddTriggerBehaviour(
-		NewIgnoredTriggerBehaviour[TState](trigger, NewTransitionGuard(guard, desc)),
+		NewIgnoredTriggerBehaviour[TState](trigger, NewTransitionGuard(guard, firstOrEmpty(guardDescription))),
 	)
 	return sc
 }
@@ -156,10 +148,7 @@ func (sc *StateConfiguration[TState, TTrigger]) PermitDynamicIf(
 	guard func() bool,
 	guardDescription ...string,
 ) *StateConfiguration[TState, TTrigger] {
-	desc := ""
-	if len(guardDescription) > 0 {
-		desc = guardDescription[0]
-	}
+	desc := firstOrEmpty(guardDescription)
 	info := DynamicTransitionInfo{
 		transitionInfoBase: transitionInfoBase{
 			Trigger:         NewTriggerInfo(trigger),
@@ -181,10 +170,7 @@ func (sc *StateConfiguration[TState, TTrigger]) PermitDynamicArgsIf(
 	guard func(args any) bool,
 	guardDescription ...string,
 ) *StateConfiguration[TState, TTrigger] {
-	desc := ""
-	if len(guardDescription) > 0 {
-		desc = guardDescription[0]
-	}
+	desc := firstOrEmpty(guardDescription)
 	info := DynamicTransitionInfo{
 		transitionInfoBase: transitionInfoBase{
 			Trigger:         NewTriggerInfo(trigger),
@@ -218,12 +204,8 @@ func (sc *StateConfiguration[TState, TTrigger]) InternalTransitionIf(
 	action func(),
 	guardDescription ...string,
 ) *StateConfiguration[TState, TTrigger] {
-	desc := ""
-	if len(guardDescription) > 0 {
-		desc = guardDescription[0]
-	}
 	sc.representation.AddTriggerBehaviour(
-		NewSyncInternalTriggerBehaviour(trigger, func(args any) bool { return guard() }, func(t internalTransition[TState, TTrigger]) { action() }, desc),
+		NewSyncInternalTriggerBehaviour(trigger, func(args any) bool { return guard() }, func(t internalTransition[TState, TTrigger]) { action() }, firstOrEmpty(guardDescription)),
 	)
 	return sc
 }
@@ -272,7 +254,7 @@ func (sc *StateConfiguration[TState, TTrigger]) OnExit(action func()) *StateConf
 // and this state is the current state.
 func (sc *StateConfiguration[TState, TTrigger]) OnActivate(action func()) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddActivateAction(
-		NewSyncActivateActionBehaviour(sc.representation.UnderlyingState(), action, CreateInvocationInfo(action, "")),
+		NewSyncActivateActionBehaviour[TState](action, CreateInvocationInfo(action, "")),
 	)
 	return sc
 }
@@ -281,7 +263,7 @@ func (sc *StateConfiguration[TState, TTrigger]) OnActivate(action func()) *State
 // and this state is the current state.
 func (sc *StateConfiguration[TState, TTrigger]) OnDeactivate(action func()) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddDeactivateAction(
-		NewSyncDeactivateActionBehaviour(sc.representation.UnderlyingState(), action, CreateInvocationInfo(action, "")),
+		NewSyncDeactivateActionBehaviour[TState](action, CreateInvocationInfo(action, "")),
 	)
 	return sc
 }

@@ -117,19 +117,16 @@ type ActivateActionBehaviour[TState comparable] interface {
 
 // SyncActivateActionBehaviour is a synchronous activation action.
 type SyncActivateActionBehaviour[TState comparable] struct {
-	state       TState
 	action      func()
 	description InvocationInfo
 }
 
 // NewSyncActivateActionBehaviour creates a new synchronous activation action.
 func NewSyncActivateActionBehaviour[TState comparable](
-	state TState,
 	action func(),
 	description InvocationInfo,
 ) *SyncActivateActionBehaviour[TState] {
 	return &SyncActivateActionBehaviour[TState]{
-		state:       state,
 		action:      action,
 		description: description,
 	}
@@ -156,19 +153,16 @@ type DeactivateActionBehaviour[TState comparable] interface {
 
 // SyncDeactivateActionBehaviour is a synchronous deactivation action.
 type SyncDeactivateActionBehaviour[TState comparable] struct {
-	state       TState
 	action      func()
 	description InvocationInfo
 }
 
 // NewSyncDeactivateActionBehaviour creates a new synchronous deactivation action.
 func NewSyncDeactivateActionBehaviour[TState comparable](
-	state TState,
 	action func(),
 	description InvocationInfo,
 ) *SyncDeactivateActionBehaviour[TState] {
 	return &SyncDeactivateActionBehaviour[TState]{
-		state:       state,
 		action:      action,
 		description: description,
 	}

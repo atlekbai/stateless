@@ -51,9 +51,6 @@ type StateMachine[TState, TTrigger comparable] struct {
 	// mutex protects the state machine from concurrent access.
 	mutex sync.Mutex
 
-	// retainSynchronizationContext indicates if synchronization context should be retained.
-	retainSynchronizationContext bool
-
 	// isActive indicates if the state machine has been activated.
 	isActive bool
 
@@ -230,134 +227,18 @@ func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, trig
 	// Handle different types of trigger behaviours
 	switch behaviour := handler.(type) {
 	case *TransitioningTriggerBehaviour[TState, TTrigger]:
-		destination := behaviour.Destination
-		transition := internalTransition[TState, TTrigger]{
-			Source:      source,
-			Destination: destination,
-			Trigger:     trigger,
-			Args:        args,
-		}
-
-		// Execute exit actions
-		if err := representation.Exit(transition); err != nil {
-			return err
-		}
-
-		// Update state
-		sm.stateMutator(destination)
-
-		// Fire transition event
-		sm.onTransitionedEvent.Invoke(transition)
-
-		// Get destination representation
-		destRepresentation := sm.getRepresentation(destination)
-
-		// Execute entry actions
-		if err := destRepresentation.Enter(transition); err != nil {
-			return err
-		}
-
-		// Handle initial transition if destination has one (recursively for nested substates)
-		// Only if state hasn't changed during entry actions (in immediate mode, nested fires can change state)
-		if sm.State() == destination {
-			if err := sm.handleInitialTransitions(destination, trigger, args); err != nil {
-				return err
-			}
-		}
-
-		// Fire transition completed event
-		finalTransition := internalTransition[TState, TTrigger]{
-			Source:      source,
-			Destination: sm.State(),
-			Trigger:     trigger,
-			Args:        args,
-		}
-		sm.onTransitionCompletedEvent.Invoke(finalTransition)
+		return sm.executeTransition(source, behaviour.Destination, trigger, args, representation)
 
 	case *ReentryTriggerBehaviour[TState, TTrigger]:
-		destination := behaviour.Destination
-		transition := internalTransition[TState, TTrigger]{
-			Source:      source,
-			Destination: destination,
-			Trigger:     trigger,
-			Args:        args,
-		}
-
-		// Execute exit actions (reentry still fires exit/entry)
-		if err := representation.Exit(transition); err != nil {
-			return err
-		}
-
-		sm.stateMutator(destination)
-		sm.onTransitionedEvent.Invoke(transition)
-
-		// Execute entry actions
-		destRepresentation := sm.getRepresentation(destination)
-		if err := destRepresentation.Enter(transition); err != nil {
-			return err
-		}
-
-		// Handle initial transition if destination has one
-		// Only if state hasn't changed during entry actions
-		if sm.State() == destination {
-			if err := sm.handleInitialTransitions(destination, trigger, args); err != nil {
-				return err
-			}
-		}
-
-		// Fire transition completed event
-		finalTransition := internalTransition[TState, TTrigger]{
-			Source:      source,
-			Destination: sm.State(),
-			Trigger:     trigger,
-			Args:        args,
-		}
-		sm.onTransitionCompletedEvent.Invoke(finalTransition)
-
-	case *IgnoredTriggerBehaviour[TState, TTrigger]:
-		// Trigger is ignored, do nothing
+		return sm.executeTransition(source, behaviour.Destination, trigger, args, representation)
 
 	case *DynamicTriggerBehaviour[TState, TTrigger]:
 		destination := behaviour.GetDestinationState(args)
-		transition := internalTransition[TState, TTrigger]{
-			Source:      source,
-			Destination: destination,
-			Trigger:     trigger,
-			Args:        args,
-		}
+		return sm.executeTransition(source, destination, trigger, args, representation)
 
-		// Execute exit actions
-		if err := representation.Exit(transition); err != nil {
-			return err
-		}
-
-		// Update state
-		sm.stateMutator(destination)
-
-		// Fire transition event
-		sm.onTransitionedEvent.Invoke(transition)
-
-		// Execute entry actions
-		destRepresentation := sm.getRepresentation(destination)
-		if err := destRepresentation.Enter(transition); err != nil {
-			return err
-		}
-
-		// Handle initial transition if destination has one
-		// Only if state hasn't changed during entry actions
-		if sm.State() == destination {
-			if err := sm.handleInitialTransitions(destination, trigger, args); err != nil {
-				return err
-			}
-		}
-
-		finalTransition := internalTransition[TState, TTrigger]{
-			Source:      source,
-			Destination: sm.State(),
-			Trigger:     trigger,
-			Args:        args,
-		}
-		sm.onTransitionCompletedEvent.Invoke(finalTransition)
+	case *IgnoredTriggerBehaviour[TState, TTrigger]:
+		// Trigger is ignored, do nothing
+		return nil
 
 	case InternalTriggerBehaviour[TState, TTrigger]:
 		transition := internalTransition[TState, TTrigger]{
@@ -366,14 +247,62 @@ func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, trig
 			Trigger:     trigger,
 			Args:        args,
 		}
-		if err := behaviour.Execute(transition); err != nil {
-			return err
-		}
 		// Internal transitions don't fire transition events
+		return behaviour.Execute(transition)
 
 	default:
 		return &InvalidOperationError{Message: fmt.Sprintf("unknown trigger behaviour type: %T", handler)}
 	}
+}
+
+// executeTransition handles the common transition logic for all transition types.
+func (sm *StateMachine[TState, TTrigger]) executeTransition(
+	source TState,
+	destination TState,
+	trigger TTrigger,
+	args any,
+	sourceRepresentation *StateRepresentation[TState, TTrigger],
+) error {
+	transition := internalTransition[TState, TTrigger]{
+		Source:      source,
+		Destination: destination,
+		Trigger:     trigger,
+		Args:        args,
+	}
+
+	// Execute exit actions
+	if err := sourceRepresentation.Exit(transition); err != nil {
+		return err
+	}
+
+	// Update state
+	sm.stateMutator(destination)
+
+	// Fire transition event
+	sm.onTransitionedEvent.Invoke(transition)
+
+	// Execute entry actions
+	destRepresentation := sm.getRepresentation(destination)
+	if err := destRepresentation.Enter(transition); err != nil {
+		return err
+	}
+
+	// Handle initial transition if destination has one (recursively for nested substates)
+	// Only if state hasn't changed during entry actions (in immediate mode, nested fires can change state)
+	if sm.State() == destination {
+		if err := sm.handleInitialTransitions(destination, trigger, args); err != nil {
+			return err
+		}
+	}
+
+	// Fire transition completed event
+	finalTransition := internalTransition[TState, TTrigger]{
+		Source:      source,
+		Destination: sm.State(),
+		Trigger:     trigger,
+		Args:        args,
+	}
+	sm.onTransitionCompletedEvent.Invoke(finalTransition)
 
 	return nil
 }
