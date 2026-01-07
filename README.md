@@ -156,18 +156,19 @@ sm.IsInState(StateB)  // true when in StateB or StateC
 ## Parameterized Triggers
 
 ```go
-// Configure trigger with parameters
-trigger := stateless.SetTriggerParameters1[State, Trigger, string](sm, TriggerX)
+// Define a struct for trigger arguments
+type CallArgs struct {
+    CallerID string
+}
 
-// Use in entry action
-sm.Configure(StateB).
-    OnEntryWithArgs(func(t stateless.Transition[State, Trigger], args ...any) {
-        message := args[0].(string)
-        fmt.Println(message)
+// Use typed entry action with transition info
+stateless.OnEntryWithTransition[State, Trigger, CallArgs](sm.Configure(StateB),
+    func(t stateless.Transition[State, Trigger, CallArgs]) {
+        fmt.Printf("Call from: %s\n", t.Args.CallerID)
     })
 
-// Fire with parameters
-sm.Fire(TriggerX, "Hello, World!")
+// Fire with struct argument
+sm.Fire(TriggerX, CallArgs{CallerID: "555-1234"})
 ```
 
 ## Activation and Deactivation

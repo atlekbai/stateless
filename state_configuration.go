@@ -6,21 +6,18 @@ import (
 
 // StateConfiguration provides a fluent interface for configuring state behaviour.
 type StateConfiguration[TState, TTrigger comparable] struct {
-	representation        *StateRepresentation[TState, TTrigger]
-	lookup                func(TState) *StateRepresentation[TState, TTrigger]
-	triggerConfigurations map[TTrigger]*TriggerWithParameters[TTrigger]
+	representation *StateRepresentation[TState, TTrigger]
+	lookup         func(TState) *StateRepresentation[TState, TTrigger]
 }
 
 // NewStateConfiguration creates a new state configuration.
 func NewStateConfiguration[TState, TTrigger comparable](
 	representation *StateRepresentation[TState, TTrigger],
 	lookup func(TState) *StateRepresentation[TState, TTrigger],
-	triggerConfigurations map[TTrigger]*TriggerWithParameters[TTrigger],
 ) *StateConfiguration[TState, TTrigger] {
 	return &StateConfiguration[TState, TTrigger]{
-		representation:        representation,
-		lookup:                lookup,
-		triggerConfigurations: triggerConfigurations,
+		representation: representation,
+		lookup:         lookup,
 	}
 }
 

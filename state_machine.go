@@ -30,9 +30,6 @@ type StateMachine[TState, TTrigger comparable] struct {
 	// stateRepresentations contains the configuration for each state.
 	stateRepresentations map[TState]*StateRepresentation[TState, TTrigger]
 
-	// triggerConfigurations contains the configuration for parameterized triggers.
-	triggerConfigurations map[TTrigger]*TriggerWithParameters[TTrigger]
-
 	// unhandledTriggerAction is called when a trigger is fired but not handled.
 	unhandledTriggerAction func(state TState, trigger TTrigger, unmetGuards []string)
 
@@ -130,7 +127,6 @@ func NewStateMachineWithExternalStorage[TState, TTrigger comparable](
 		stateAccessor:              stateAccessor,
 		stateMutator:               stateMutator,
 		stateRepresentations:       make(map[TState]*StateRepresentation[TState, TTrigger]),
-		triggerConfigurations:      make(map[TTrigger]*TriggerWithParameters[TTrigger]),
 		onTransitionedEvent:        NewOnTransitionedEvent[TState, TTrigger](),
 		onTransitionCompletedEvent: NewOnTransitionedEvent[TState, TTrigger](),
 		firingMode:                 FiringImmediate,
@@ -160,15 +156,7 @@ func (sm *StateMachine[TState, TTrigger]) Configure(state TState) *StateConfigur
 	return NewStateConfiguration(
 		sm.getRepresentation(state),
 		sm.getRepresentation,
-		sm.triggerConfigurations,
 	)
-}
-
-// SetTriggerParameters configures a trigger to require specific parameter types.
-func (sm *StateMachine[TState, TTrigger]) SetTriggerParameters(trigger TTrigger, argTypes ...any) *TriggerWithParameters[TTrigger] {
-	config := NewTriggerWithParameters(trigger)
-	sm.triggerConfigurations[trigger] = config
-	return config
 }
 
 // Fire fires a trigger with optional args (should be a struct or nil).
@@ -524,7 +512,7 @@ func (sm *StateMachine[TState, TTrigger]) GetDetailedPermittedTriggers(args any)
 	triggers := sm.GetPermittedTriggers(args)
 	details := make([]TriggerDetails[TState, TTrigger], len(triggers))
 	for i, trigger := range triggers {
-		details[i] = NewTriggerDetails[TState](trigger, sm.triggerConfigurations)
+		details[i] = NewTriggerDetails[TState, TTrigger](trigger)
 	}
 	return details
 }
