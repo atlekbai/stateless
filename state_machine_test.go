@@ -2158,3 +2158,133 @@ func TestIgnoreIfFalseTriggerMustNotBeIgnored(t *testing.T) {
 		t.Errorf("expected StateC, got %v", sm.State())
 	}
 }
+
+func TestInternalTransitionIf_ShouldExecuteOnlyFirstMatchingAction(t *testing.T) {
+	sm := NewStateMachine[int, int](1)
+	executed := false
+
+	sm.Configure(1).
+		InternalTransitionIf(1, func() bool { return true }, func() {
+			executed = true
+		}).
+		InternalTransitionIf(1, func() bool { return false }, func() {
+			t.Error("second action should not be executed")
+		})
+
+	if err := sm.Fire(1, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !executed {
+		t.Error("first action should have been executed")
+	}
+}
+
+func TestSubstateTransition_OverridesSuperstate(t *testing.T) {
+	sm := NewStateMachine[State, Trigger](StateA)
+
+	sm.Configure(StateA).
+		Permit(TriggerX, StateB)
+
+	// Overrides the superstate transition
+	sm.Configure(StateB).
+		SubstateOf(StateA).
+		Permit(TriggerX, StateC)
+
+	if err := sm.Fire(TriggerX, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if sm.State() != StateB {
+		t.Errorf("expected StateB, got %v", sm.State())
+	}
+
+	if err := sm.Fire(TriggerX, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if sm.State() != StateC {
+		t.Errorf("expected StateC, got %v", sm.State())
+	}
+}
+
+func TestSubstateTransition_GuardBlocked_UsesSuperstateTransition(t *testing.T) {
+	guardConditionValue := false
+	sm := NewStateMachine[State, Trigger](StateB)
+
+	sm.Configure(StateA).
+		PermitIf(TriggerX, StateD, func() bool { return true })
+
+	sm.Configure(StateB).
+		SubstateOf(StateA).
+		PermitIf(TriggerX, StateC, func() bool { return guardConditionValue })
+
+	if err := sm.Fire(TriggerX, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if sm.State() != StateD {
+		t.Errorf("expected StateD (superstate transition), got %v", sm.State())
+	}
+}
+
+func TestSubstateTransition_GuardOpen_UsesSubstateTransition(t *testing.T) {
+	guardConditionValue := true
+	sm := NewStateMachine[State, Trigger](StateB)
+
+	sm.Configure(StateA).
+		PermitIf(TriggerX, StateD, func() bool { return true })
+
+	sm.Configure(StateB).
+		SubstateOf(StateA).
+		PermitIf(TriggerX, StateC, func() bool { return guardConditionValue })
+
+	if err := sm.Fire(TriggerX, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if sm.State() != StateC {
+		t.Errorf("expected StateC (substate transition), got %v", sm.State())
+	}
+}
+
+func TestMultiLayerSubstates_GuardFallthrough(t *testing.T) {
+	testCases := []struct {
+		name                       string
+		parentGuard                bool
+		childGuard                 bool
+		grandchildGuard            bool
+		expectedState              string
+	}{
+		{"grandchild open only", false, false, true, "GrandchildStateTarget"},
+		{"child open only", false, true, false, "ChildStateTarget"},
+		{"child and grandchild open", false, true, true, "GrandchildStateTarget"},
+		{"parent open only", true, false, false, "ParentStateTarget"},
+		{"parent and grandchild open", true, false, true, "GrandchildStateTarget"},
+		{"parent and child open", true, true, false, "ChildStateTarget"},
+		{"all open", true, true, true, "GrandchildStateTarget"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			sm := NewStateMachine[string, Trigger]("GrandchildState")
+
+			sm.Configure("ParentState").
+				PermitIf(TriggerX, "ParentStateTarget", func() bool { return tc.parentGuard })
+
+			sm.Configure("ChildState").
+				SubstateOf("ParentState").
+				PermitIf(TriggerX, "ChildStateTarget", func() bool { return tc.childGuard })
+
+			sm.Configure("GrandchildState").
+				SubstateOf("ChildState").
+				PermitIf(TriggerX, "GrandchildStateTarget", func() bool { return tc.grandchildGuard })
+
+			if err := sm.Fire(TriggerX, nil); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if sm.State() != tc.expectedState {
+				t.Errorf("expected %s, got %s", tc.expectedState, sm.State())
+			}
+		})
+	}
+}
