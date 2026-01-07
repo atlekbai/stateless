@@ -235,6 +235,12 @@ func (sr *StateRepresentation[TState, TTrigger]) Enter(ctx context.Context, tran
 		return sr.ExecuteEntryActions(ctx, transition)
 	}
 
+	// Note: When transitioning from a child state to its parent state,
+	// entry actions are NOT executed because hierarchically you never
+	// "left" the parent state. This matches .NET Stateless behavior.
+	// See: https://github.com/qmuntal/stateless/issues/98
+	// If you need entry actions to fire, use PermitReentry instead.
+
 	return nil
 }
 
