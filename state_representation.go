@@ -217,12 +217,16 @@ func (sr *StateRepresentation[TState, TTrigger]) AddDeactivateAction(action Deac
 
 // Enter executes entry actions for this state.
 func (sr *StateRepresentation[TState, TTrigger]) Enter(transition internalTransition[TState, TTrigger]) error {
+	// Reentry - execute entry actions for this state only
 	if transition.Source == transition.Destination {
 		return sr.ExecuteEntryActions(transition)
 	}
 
+	// If source is not in this state's hierarchy, we need to enter
 	if !sr.Includes(transition.Source) {
-		if sr.superstate != nil {
+		// For initial transitions, don't enter superstate (we're already in it)
+		// For regular transitions, enter superstate first
+		if sr.superstate != nil && !transition.isInitial {
 			if err := sr.superstate.Enter(transition); err != nil {
 				return err
 			}

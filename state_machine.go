@@ -233,6 +233,11 @@ func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, trig
 	// Handle different types of trigger behaviours
 	switch behaviour := handler.(type) {
 	case *TransitioningTriggerBehaviour[TState, TTrigger]:
+		// If a trigger was found on a superstate that would cause unintended reentry, don't trigger.
+		// This can happen when a superstate defines a transition to the current substate.
+		if source == behaviour.Destination {
+			return nil
+		}
 		return sm.executeTransition(source, behaviour.Destination, trigger, args, representation)
 
 	case *ReentryTriggerBehaviour[TState, TTrigger]:
