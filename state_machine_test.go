@@ -2302,3 +2302,145 @@ func TestMultiLayerSubstates_GuardFallthrough(t *testing.T) {
 		})
 	}
 }
+
+// TestIssue98_OnEntryFromChildToParent tests that OnEntry fires when transitioning
+// from a child state back to its parent state.
+// See: https://github.com/qmuntal/stateless/issues/98
+//
+// NOTE: This test currently FAILS because the implementation mirrors the original
+// .NET Stateless behavior. When transitioning from a child state to its parent,
+// the parent's OnEntry is NOT called because the parent state "includes" the child.
+// This is a known issue that also exists in qmuntal/stateless and dotnet/stateless.
+func TestIssue98_OnEntryFromChildToParent(t *testing.T) {
+	t.Skip("Skipping: Known issue #98 from qmuntal/stateless - OnEntry not firing when transitioning from child to parent")
+
+	type Issue98State string
+	type Issue98Trigger string
+
+	const (
+		Working   Issue98State   = "Working"
+		SubstateA Issue98State   = "SubstateA"
+		SubstateB Issue98State   = "SubstateB"
+		GoToA     Issue98Trigger = "GoToA"
+		GoToB     Issue98Trigger = "GoToB"
+		ExitA     Issue98Trigger = "ExitA"
+	)
+
+	sm := NewStateMachine[Issue98State, Issue98Trigger](Working)
+
+	var workingEntryCount int
+
+	sm.Configure(Working).
+		OnEntry(func(ctx context.Context) error {
+			workingEntryCount++
+			return nil
+		}).
+		Permit(GoToA, SubstateA).
+		Permit(GoToB, SubstateB)
+
+	sm.Configure(SubstateA).
+		SubstateOf(Working).
+		Permit(ExitA, Working)
+
+	sm.Configure(SubstateB).
+		SubstateOf(Working)
+
+	// Initially in Working state - OnEntry should NOT have fired yet
+	// (we start in that state, not transition into it)
+	if workingEntryCount != 0 {
+		t.Errorf("expected workingEntryCount to be 0 initially, got %d", workingEntryCount)
+	}
+
+	// Transition from Working to SubstateA
+	if err := sm.Fire(GoToA, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if sm.State() != SubstateA {
+		t.Fatalf("expected SubstateA, got %v", sm.State())
+	}
+	// OnEntry should NOT fire because SubstateA is a substate of Working
+	// (we're still "in" Working from the hierarchy perspective)
+	if workingEntryCount != 0 {
+		t.Errorf("expected workingEntryCount to be 0 after entering SubstateA, got %d", workingEntryCount)
+	}
+
+	// Now transition from SubstateA back to Working (parent state)
+	// This is the key test from issue #98: OnEntry SHOULD fire here
+	if err := sm.Fire(ExitA, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if sm.State() != Working {
+		t.Fatalf("expected Working, got %v", sm.State())
+	}
+
+	// OnEntry should fire when transitioning from child back to parent
+	if workingEntryCount != 1 {
+		t.Errorf("expected workingEntryCount to be 1 after transitioning from SubstateA to Working, got %d", workingEntryCount)
+	}
+}
+
+// TestIssue98_Behavior_CurrentlyImplemented documents the actual current behavior
+// of transitioning from child to parent state (which matches qmuntal/stateless and dotnet/stateless).
+func TestIssue98_Behavior_CurrentlyImplemented(t *testing.T) {
+	type Issue98State string
+	type Issue98Trigger string
+
+	const (
+		Working   Issue98State   = "Working"
+		SubstateA Issue98State   = "SubstateA"
+		SubstateB Issue98State   = "SubstateB"
+		GoToA     Issue98Trigger = "GoToA"
+		GoToB     Issue98Trigger = "GoToB"
+		ExitA     Issue98Trigger = "ExitA"
+	)
+
+	sm := NewStateMachine[Issue98State, Issue98Trigger](Working)
+
+	var workingEntryCount int
+	var substateAExitCount int
+
+	sm.Configure(Working).
+		OnEntry(func(ctx context.Context) error {
+			workingEntryCount++
+			return nil
+		}).
+		Permit(GoToA, SubstateA).
+		Permit(GoToB, SubstateB)
+
+	sm.Configure(SubstateA).
+		SubstateOf(Working).
+		OnExit(func(ctx context.Context) error {
+			substateAExitCount++
+			return nil
+		}).
+		Permit(ExitA, Working)
+
+	sm.Configure(SubstateB).
+		SubstateOf(Working)
+
+	// Go to SubstateA
+	if err := sm.Fire(GoToA, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Transition from SubstateA back to Working (parent state)
+	if err := sm.Fire(ExitA, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Current behavior: OnEntry for parent is NOT called when coming from child
+	// This matches qmuntal/stateless and dotnet/stateless behavior
+	if workingEntryCount != 0 {
+		t.Errorf("Current implementation: expected workingEntryCount to be 0 (parent OnEntry not called when transitioning from child), got %d", workingEntryCount)
+	}
+
+	// But OnExit for child IS called
+	if substateAExitCount != 1 {
+		t.Errorf("expected substateAExitCount to be 1, got %d", substateAExitCount)
+	}
+
+	// State should be Working
+	if sm.State() != Working {
+		t.Errorf("expected Working, got %v", sm.State())
+	}
+}
