@@ -547,6 +547,47 @@ func TestOnTransitionCompleted(t *testing.T) {
 	}
 }
 
+func TestUnregisterAllCallbacks(t *testing.T) {
+	transitionCount := 0
+	completedCount := 0
+
+	sm := NewStateMachine[State, Trigger](StateA)
+	sm.Configure(StateA).Permit(TriggerX, StateB)
+	sm.Configure(StateB).Permit(TriggerY, StateA)
+
+	sm.OnTransitioned(func(transition Transition[State, Trigger]) {
+		transitionCount++
+	})
+	sm.OnTransitionCompleted(func(transition Transition[State, Trigger]) {
+		completedCount++
+	})
+
+	// Fire once - callbacks should be called
+	if err := sm.Fire(TriggerX); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if transitionCount != 1 {
+		t.Errorf("expected transitionCount to be 1, got %d", transitionCount)
+	}
+	if completedCount != 1 {
+		t.Errorf("expected completedCount to be 1, got %d", completedCount)
+	}
+
+	// Unregister all callbacks
+	sm.UnregisterAllCallbacks()
+
+	// Fire again - callbacks should NOT be called
+	if err := sm.Fire(TriggerY); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if transitionCount != 1 {
+		t.Errorf("expected transitionCount to still be 1 after unregister, got %d", transitionCount)
+	}
+	if completedCount != 1 {
+		t.Errorf("expected completedCount to still be 1 after unregister, got %d", completedCount)
+	}
+}
+
 // External storage tests
 
 func TestExternalStorage(t *testing.T) {

@@ -441,6 +441,23 @@ func (sm *StateMachine[TState, TTrigger]) OnTransitionCompleted(action func(tran
 	sm.onTransitionCompletedEvent.Register(action)
 }
 
+// UnregisterAllTransitionedCallbacks removes all OnTransitioned callbacks.
+func (sm *StateMachine[TState, TTrigger]) UnregisterAllTransitionedCallbacks() {
+	sm.onTransitionedEvent.UnregisterAll()
+}
+
+// UnregisterAllTransitionCompletedCallbacks removes all OnTransitionCompleted callbacks.
+func (sm *StateMachine[TState, TTrigger]) UnregisterAllTransitionCompletedCallbacks() {
+	sm.onTransitionCompletedEvent.UnregisterAll()
+}
+
+// UnregisterAllCallbacks removes all registered callbacks (OnTransitioned and OnTransitionCompleted).
+func (sm *StateMachine[TState, TTrigger]) UnregisterAllCallbacks() {
+	sm.onTransitionedEvent.UnregisterAll()
+	sm.onTransitionCompletedEvent.UnregisterAll()
+	sm.unhandledTriggerAction = nil
+}
+
 // Activate activates the state machine.
 func (sm *StateMachine[TState, TTrigger]) Activate() error {
 	if sm.isActive {
