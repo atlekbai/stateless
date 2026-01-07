@@ -786,6 +786,117 @@ func TestConcurrentFire(t *testing.T) {
 	// Just ensure no panics occurred
 }
 
+func TestImmediateEntryAProcessedBeforeEnterB(t *testing.T) {
+	record := []string{}
+	sm := NewStateMachineWithMode[State, Trigger](StateA, FiringImmediate)
+
+	sm.Configure(StateA).
+		OnEntry(func() { record = append(record, "EnterA") }).
+		Permit(TriggerX, StateB).
+		OnExit(func() { record = append(record, "ExitA") })
+
+	sm.Configure(StateB).
+		OnEntry(func() {
+			// Fire this before finishing processing the entry action
+			sm.Fire(TriggerY, nil)
+			record = append(record, "EnterB")
+		}).
+		Permit(TriggerY, StateA).
+		OnExit(func() { record = append(record, "ExitB") })
+
+	if err := sm.Fire(TriggerX, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Expected sequence of events: Exit A -> Exit B -> Enter A -> Enter B
+	expected := []string{"ExitA", "ExitB", "EnterA", "EnterB"}
+	if len(record) != len(expected) {
+		t.Fatalf("expected %d events, got %d: %v", len(expected), len(record), record)
+	}
+	for i := 0; i < len(expected); i++ {
+		if record[i] != expected[i] {
+			t.Errorf("expected %s at index %d, got %s", expected[i], i, record[i])
+		}
+	}
+}
+
+func TestQueuedEntryAProcessedAfterEnterB(t *testing.T) {
+	record := []string{}
+	sm := NewStateMachineWithMode[State, Trigger](StateA, FiringQueued)
+
+	sm.Configure(StateA).
+		OnEntry(func() { record = append(record, "EnterA") }).
+		Permit(TriggerX, StateB).
+		OnExit(func() { record = append(record, "ExitA") })
+
+	sm.Configure(StateB).
+		OnEntry(func() {
+			// Fire this before finishing processing the entry action
+			sm.Fire(TriggerY, nil)
+			record = append(record, "EnterB")
+		}).
+		Permit(TriggerY, StateA).
+		OnExit(func() { record = append(record, "ExitB") })
+
+	if err := sm.Fire(TriggerX, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Expected sequence of events: Exit A -> Enter B -> Exit B -> Enter A
+	expected := []string{"ExitA", "EnterB", "ExitB", "EnterA"}
+	if len(record) != len(expected) {
+		t.Fatalf("expected %d events, got %d: %v", len(expected), len(record), record)
+	}
+	for i := 0; i < len(expected); i++ {
+		if record[i] != expected[i] {
+			t.Errorf("expected %s at index %d, got %s", expected[i], i, record[i])
+		}
+	}
+}
+
+func TestImmediateFiringOnEntryEndsUpInCorrectState(t *testing.T) {
+	record := []string{}
+	sm := NewStateMachineWithMode[State, Trigger](StateA, FiringImmediate)
+
+	sm.Configure(StateA).
+		OnEntry(func() { record = append(record, "EnterA") }).
+		Permit(TriggerX, StateB).
+		OnExit(func() { record = append(record, "ExitA") })
+
+	sm.Configure(StateB).
+		OnEntry(func() {
+			record = append(record, "EnterB")
+			// Fire this before finishing processing the entry action
+			sm.Fire(TriggerX, nil)
+		}).
+		Permit(TriggerX, StateC).
+		OnExit(func() { record = append(record, "ExitB") })
+
+	sm.Configure(StateC).
+		OnEntry(func() { record = append(record, "EnterC") }).
+		Permit(TriggerX, StateA).
+		OnExit(func() { record = append(record, "ExitC") })
+
+	if err := sm.Fire(TriggerX, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Expected sequence of events: ExitA -> EnterB -> ExitB -> EnterC
+	expected := []string{"ExitA", "EnterB", "ExitB", "EnterC"}
+	if len(record) != len(expected) {
+		t.Fatalf("expected %d events, got %d: %v", len(expected), len(record), record)
+	}
+	for i := 0; i < len(expected); i++ {
+		if record[i] != expected[i] {
+			t.Errorf("expected %s at index %d, got %s", expected[i], i, record[i])
+		}
+	}
+
+	if sm.State() != StateC {
+		t.Errorf("expected StateC, got %v", sm.State())
+	}
+}
+
 // GetInfo test
 
 func TestGetInfo(t *testing.T) {
