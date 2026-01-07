@@ -191,7 +191,7 @@ func (sc *StateConfiguration[TState, TTrigger]) InternalTransition(
 	action func(),
 ) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddTriggerBehaviour(
-		NewSyncInternalTriggerBehaviour(trigger, nil, func(t internalTransition[TState, TTrigger]) { action() }, ""),
+		NewSyncInternalTriggerBehaviour(trigger, EmptyTransitionGuard, func(t internalTransition[TState, TTrigger]) { action() }),
 	)
 	return sc
 }
@@ -205,7 +205,7 @@ func (sc *StateConfiguration[TState, TTrigger]) InternalTransitionIf(
 	guardDescription ...string,
 ) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddTriggerBehaviour(
-		NewSyncInternalTriggerBehaviour(trigger, func(args any) bool { return guard() }, func(t internalTransition[TState, TTrigger]) { action() }, firstOrEmpty(guardDescription)),
+		NewSyncInternalTriggerBehaviour(trigger, NewTransitionGuard(guard, firstOrEmpty(guardDescription)), func(t internalTransition[TState, TTrigger]) { action() }),
 	)
 	return sc
 }
@@ -387,10 +387,10 @@ func InternalTransitionWithTransition[TState, TTrigger comparable, TArgs any](
 	action func(Transition[TState, TTrigger, TArgs]),
 ) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddTriggerBehaviour(
-		NewSyncInternalTriggerBehaviour(trigger, nil, func(t internalTransition[TState, TTrigger]) {
+		NewSyncInternalTriggerBehaviour(trigger, EmptyTransitionGuard, func(t internalTransition[TState, TTrigger]) {
 			typedTransition := toTypedTransition[TState, TTrigger, TArgs](t)
 			action(typedTransition)
-		}, ""),
+		}),
 	)
 	return sc
 }

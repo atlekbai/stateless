@@ -141,14 +141,13 @@ type SyncInternalTriggerBehaviour[TState, TTrigger comparable] struct {
 // NewSyncInternalTriggerBehaviour creates a new synchronous internal trigger behaviour.
 func NewSyncInternalTriggerBehaviour[TState, TTrigger comparable](
 	trigger TTrigger,
-	guard func(args any) bool,
+	guard TransitionGuard,
 	internalAction func(transition internalTransition[TState, TTrigger]),
-	guardDescription string,
 ) *SyncInternalTriggerBehaviour[TState, TTrigger] {
 	return &SyncInternalTriggerBehaviour[TState, TTrigger]{
 		triggerBehaviourBase: triggerBehaviourBase[TState, TTrigger]{
 			trigger: trigger,
-			guard:   NewTransitionGuardWithArgs(guard, guardDescription),
+			guard:   guard,
 		},
 		internalAction: internalAction,
 	}
