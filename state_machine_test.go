@@ -378,6 +378,233 @@ func TestInternalTransition(t *testing.T) {
 	}
 }
 
+// Internal transition tests (ported from .NET Stateless)
+
+func TestInternalTransition_StayInSameStateOneState(t *testing.T) {
+	sm := NewStateMachine[State, Trigger](StateA)
+	sm.Configure(StateA).
+		InternalTransition(TriggerX, func() {})
+
+	if sm.State() != StateA {
+		t.Errorf("expected StateA, got %v", sm.State())
+	}
+	if err := sm.Fire(TriggerX, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if sm.State() != StateA {
+		t.Errorf("expected StateA after fire, got %v", sm.State())
+	}
+}
+
+func TestInternalTransition_StayInSameStateTwoStates(t *testing.T) {
+	sm := NewStateMachine[State, Trigger](StateA)
+
+	sm.Configure(StateA).
+		InternalTransition(TriggerX, func() {}).
+		Permit(TriggerY, StateB)
+
+	sm.Configure(StateB).
+		InternalTransition(TriggerX, func() {}).
+		Permit(TriggerY, StateA)
+
+	// This should not cause any state changes
+	if sm.State() != StateA {
+		t.Errorf("expected StateA, got %v", sm.State())
+	}
+	if err := sm.Fire(TriggerX, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if sm.State() != StateA {
+		t.Errorf("expected StateA after TriggerX, got %v", sm.State())
+	}
+
+	// Change state to B
+	if err := sm.Fire(TriggerY, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// This should also not cause any state changes
+	if sm.State() != StateB {
+		t.Errorf("expected StateB, got %v", sm.State())
+	}
+	if err := sm.Fire(TriggerX, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if sm.State() != StateB {
+		t.Errorf("expected StateB after TriggerX, got %v", sm.State())
+	}
+}
+
+func TestInternalTransition_StayInSameSubStateTransitionInSuperstate(t *testing.T) {
+	sm := NewStateMachine[State, Trigger](StateB)
+
+	sm.Configure(StateA).
+		InternalTransition(TriggerX, func() {}).
+		InternalTransition(TriggerY, func() {})
+
+	sm.Configure(StateB).
+		SubstateOf(StateA)
+
+	// This should not cause any state changes
+	if sm.State() != StateB {
+		t.Errorf("expected StateB, got %v", sm.State())
+	}
+	if err := sm.Fire(TriggerX, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if sm.State() != StateB {
+		t.Errorf("expected StateB after TriggerX, got %v", sm.State())
+	}
+	if err := sm.Fire(TriggerY, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if sm.State() != StateB {
+		t.Errorf("expected StateB after TriggerY, got %v", sm.State())
+	}
+}
+
+func TestInternalTransition_StayInSameSubStateTransitionInSubstate(t *testing.T) {
+	sm := NewStateMachine[State, Trigger](StateB)
+
+	sm.Configure(StateA)
+
+	sm.Configure(StateB).
+		SubstateOf(StateA).
+		InternalTransition(TriggerX, func() {}).
+		InternalTransition(TriggerY, func() {})
+
+	// This should not cause any state changes
+	if sm.State() != StateB {
+		t.Errorf("expected StateB, got %v", sm.State())
+	}
+	if err := sm.Fire(TriggerX, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if sm.State() != StateB {
+		t.Errorf("expected StateB after TriggerX, got %v", sm.State())
+	}
+	if err := sm.Fire(TriggerY, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if sm.State() != StateB {
+		t.Errorf("expected StateB after TriggerY, got %v", sm.State())
+	}
+}
+
+func TestInternalTransitionIf_ShouldBeReflectedInPermittedTriggers(t *testing.T) {
+	isPermitted := true
+	sm := NewStateMachine[State, Trigger](StateA)
+	sm.Configure(StateA).
+		InternalTransitionIf(TriggerX, func() bool { return isPermitted }, func() {})
+
+	triggers := sm.GetPermittedTriggers(nil)
+	if len(triggers) != 1 {
+		t.Errorf("expected 1 permitted trigger, got %d", len(triggers))
+	}
+
+	isPermitted = false
+	triggers = sm.GetPermittedTriggers(nil)
+	if len(triggers) != 0 {
+		t.Errorf("expected 0 permitted triggers, got %d", len(triggers))
+	}
+}
+
+func TestInternalTransition_HandledOnlyOnceInSuper(t *testing.T) {
+	handledIn := StateC
+
+	sm := NewStateMachine[State, Trigger](StateA)
+
+	sm.Configure(StateA).
+		InternalTransition(TriggerX, func() { handledIn = StateA })
+
+	sm.Configure(StateB).
+		SubstateOf(StateA).
+		InternalTransition(TriggerX, func() { handledIn = StateB })
+
+	// The state machine is in state A. It should only be handled in State A
+	if err := sm.Fire(TriggerX, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if handledIn != StateA {
+		t.Errorf("expected handledIn to be StateA, got %v", handledIn)
+	}
+}
+
+func TestInternalTransition_HandledOnlyOnceInSub(t *testing.T) {
+	handledIn := StateC
+
+	sm := NewStateMachine[State, Trigger](StateB)
+
+	sm.Configure(StateA).
+		InternalTransition(TriggerX, func() { handledIn = StateA })
+
+	sm.Configure(StateB).
+		SubstateOf(StateA).
+		InternalTransition(TriggerX, func() { handledIn = StateB })
+
+	// The state machine is in state B. It should only be handled in State B
+	if err := sm.Fire(TriggerX, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if handledIn != StateB {
+		t.Errorf("expected handledIn to be StateB, got %v", handledIn)
+	}
+}
+
+func TestInternalTransition_OnlyOneHandlerExecuted(t *testing.T) {
+	handled := 0
+
+	sm := NewStateMachine[State, Trigger](StateA)
+
+	sm.Configure(StateA).
+		InternalTransition(TriggerX, func() { handled++ }).
+		InternalTransition(TriggerY, func() { handled++ })
+
+	if err := sm.Fire(TriggerX, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if handled != 1 {
+		t.Errorf("expected handled to be 1, got %d", handled)
+	}
+
+	if err := sm.Fire(TriggerY, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if handled != 2 {
+		t.Errorf("expected handled to be 2, got %d", handled)
+	}
+}
+
+func TestInternalTransitionWithTransition_TypedArgs(t *testing.T) {
+	type InternalArgs struct {
+		Value int
+	}
+
+	sm := NewStateMachine[State, Trigger](StateA)
+	var receivedValue int
+
+	InternalTransitionWithTransition[State, Trigger, InternalArgs](
+		sm.Configure(StateA),
+		TriggerX,
+		func(trans Transition[State, Trigger, InternalArgs]) {
+			receivedValue = trans.Args.Value
+		},
+	)
+
+	if err := sm.Fire(TriggerX, InternalArgs{Value: 42}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if receivedValue != 42 {
+		t.Errorf("expected receivedValue to be 42, got %d", receivedValue)
+	}
+	if sm.State() != StateA {
+		t.Errorf("expected state to remain StateA, got %v", sm.State())
+	}
+}
+
 // Dynamic transition tests
 
 func TestPermitDynamic(t *testing.T) {

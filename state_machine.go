@@ -540,16 +540,6 @@ func (sm *StateMachine[TState, TTrigger]) GetPermittedTriggers(args any) []TTrig
 	return sm.getRepresentation(sm.State()).GetPermittedTriggers(args)
 }
 
-// GetDetailedPermittedTriggers returns detailed information about permitted triggers.
-func (sm *StateMachine[TState, TTrigger]) GetDetailedPermittedTriggers(args any) []TriggerDetails[TState, TTrigger] {
-	triggers := sm.GetPermittedTriggers(args)
-	details := make([]TriggerDetails[TState, TTrigger], len(triggers))
-	for i, trigger := range triggers {
-		details[i] = NewTriggerDetails[TState, TTrigger](trigger)
-	}
-	return details
-}
-
 // getRepresentation gets or creates the representation for a state.
 func (sm *StateMachine[TState, TTrigger]) getRepresentation(state TState) *StateRepresentation[TState, TTrigger] {
 	representation, exists := sm.stateRepresentations[state]

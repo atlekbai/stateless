@@ -236,10 +236,7 @@ state := sm.State()
 canFire := sm.CanFire(TriggerX)
 
 // Get permitted triggers
-triggers := sm.GetPermittedTriggers()
-
-// Get detailed trigger info
-details := sm.GetDetailedPermittedTriggers()
+triggers := sm.GetPermittedTriggers(nil)
 
 // Check if in a state (including substates)
 isInState := sm.IsInState(StateA)
