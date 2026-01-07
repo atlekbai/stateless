@@ -69,6 +69,17 @@ func (sr *StateRepresentation[TState, TTrigger]) AddSubstate(substate *StateRepr
 	sr.substates = append(sr.substates, substate)
 }
 
+// IsSubstateOf returns true if this state is a substate of the given state.
+func (sr *StateRepresentation[TState, TTrigger]) IsSubstateOf(state TState) bool {
+	if sr.superstate == nil {
+		return false
+	}
+	if sr.superstate.UnderlyingState() == state {
+		return true
+	}
+	return sr.superstate.IsSubstateOf(state)
+}
+
 // TriggerBehaviours returns the trigger behaviours map.
 func (sr *StateRepresentation[TState, TTrigger]) TriggerBehaviours() map[TTrigger][]TriggerBehaviour[TState, TTrigger] {
 	return sr.triggerBehaviours

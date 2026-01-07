@@ -304,7 +304,14 @@ func (sc *StateConfiguration[TState, TTrigger]) SubstateOf(superstate TState) *S
 }
 
 // InitialTransition sets the initial transition for this state (used with substates).
+// The destination state must be a substate of this state.
 func (sc *StateConfiguration[TState, TTrigger]) InitialTransition(destinationState TState) *StateConfiguration[TState, TTrigger] {
+	if sc.representation.UnderlyingState() == destinationState {
+		panic(fmt.Sprintf("initial transition to self is not allowed: state '%v'", destinationState))
+	}
+	if sc.representation.HasInitialTransition() {
+		panic(fmt.Sprintf("state '%v' already has an initial transition defined", sc.representation.UnderlyingState()))
+	}
 	sc.representation.SetInitialTransition(destinationState)
 	return sc
 }

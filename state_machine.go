@@ -257,23 +257,10 @@ func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, trig
 			return err
 		}
 
-		// Handle initial transition if destination has one
-		if destRepresentation.HasInitialTransition() {
-			initialTarget := destRepresentation.InitialTransitionTarget()
-			initialTransition := internalTransition[TState, TTrigger]{
-				Source:      destination,
-				Destination: initialTarget,
-				Trigger:     trigger,
-				Args:        args,
-				isInitial:   true,
-			}
-
-			// Update state to initial target
-			sm.stateMutator(initialTarget)
-
-			// Execute entry actions for initial target
-			initialTargetRepresentation := sm.getRepresentation(initialTarget)
-			if err := initialTargetRepresentation.Enter(initialTransition); err != nil {
+		// Handle initial transition if destination has one (recursively for nested substates)
+		// Only if state hasn't changed during entry actions (in immediate mode, nested fires can change state)
+		if sm.State() == destination {
+			if err := sm.handleInitialTransitions(destination, trigger, args); err != nil {
 				return err
 			}
 		}
@@ -310,7 +297,22 @@ func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, trig
 			return err
 		}
 
-		sm.onTransitionCompletedEvent.Invoke(transition)
+		// Handle initial transition if destination has one
+		// Only if state hasn't changed during entry actions
+		if sm.State() == destination {
+			if err := sm.handleInitialTransitions(destination, trigger, args); err != nil {
+				return err
+			}
+		}
+
+		// Fire transition completed event
+		finalTransition := internalTransition[TState, TTrigger]{
+			Source:      source,
+			Destination: sm.State(),
+			Trigger:     trigger,
+			Args:        args,
+		}
+		sm.onTransitionCompletedEvent.Invoke(finalTransition)
 
 	case *IgnoredTriggerBehaviour[TState, TTrigger]:
 		// Trigger is ignored, do nothing
@@ -342,19 +344,9 @@ func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, trig
 		}
 
 		// Handle initial transition if destination has one
-		if destRepresentation.HasInitialTransition() {
-			initialTarget := destRepresentation.InitialTransitionTarget()
-			initialTransition := internalTransition[TState, TTrigger]{
-				Source:      destination,
-				Destination: initialTarget,
-				Trigger:     trigger,
-				Args:        args,
-				isInitial:   true,
-			}
-			sm.stateMutator(initialTarget)
-
-			initialTargetRepresentation := sm.getRepresentation(initialTarget)
-			if err := initialTargetRepresentation.Enter(initialTransition); err != nil {
+		// Only if state hasn't changed during entry actions
+		if sm.State() == destination {
+			if err := sm.handleInitialTransitions(destination, trigger, args); err != nil {
 				return err
 			}
 		}
@@ -383,6 +375,47 @@ func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, trig
 		return &InvalidOperationError{Message: fmt.Sprintf("unknown trigger behaviour type: %T", handler)}
 	}
 
+	return nil
+}
+
+// handleInitialTransitions handles initial transitions recursively for nested substates.
+func (sm *StateMachine[TState, TTrigger]) handleInitialTransitions(destination TState, trigger TTrigger, args any) error {
+	currentState := destination
+	for {
+		currentRepresentation := sm.getRepresentation(currentState)
+		if !currentRepresentation.HasInitialTransition() {
+			break
+		}
+
+		initialTarget := currentRepresentation.InitialTransitionTarget()
+
+		// Validate that initial target is a substate
+		initialTargetRepresentation := sm.getRepresentation(initialTarget)
+		if !initialTargetRepresentation.IsSubstateOf(currentState) {
+			return fmt.Errorf("initial transition target '%v' is not a substate of '%v'", initialTarget, currentState)
+		}
+
+		initialTransition := internalTransition[TState, TTrigger]{
+			Source:      currentState,
+			Destination: initialTarget,
+			Trigger:     trigger,
+			Args:        args,
+			isInitial:   true,
+		}
+
+		// Fire transition event for initial transition
+		sm.onTransitionedEvent.Invoke(initialTransition)
+
+		// Update state to initial target
+		sm.stateMutator(initialTarget)
+
+		// Execute entry actions for initial target
+		if err := initialTargetRepresentation.ExecuteEntryActions(initialTransition); err != nil {
+			return err
+		}
+
+		currentState = initialTarget
+	}
 	return nil
 }
 
