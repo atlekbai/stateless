@@ -73,6 +73,17 @@ func NewTriggerWithParameters1[TTrigger comparable, TArg0 any](underlyingTrigger
 	}
 }
 
+// Handler wraps a typed function into a handler that unpacks arguments.
+func (t *TriggerWithParameters1[TTrigger, TArg0]) Handler(fn func(TArg0)) func(...any) {
+	return func(args ...any) {
+		var arg0 TArg0
+		if len(args) > 0 {
+			arg0, _ = args[0].(TArg0)
+		}
+		fn(arg0)
+	}
+}
+
 // TriggerWithParameters2 is a configured trigger with two required arguments.
 type TriggerWithParameters2[TTrigger comparable, TArg0, TArg1 any] struct {
 	*TriggerWithParameters[TTrigger]
@@ -84,6 +95,21 @@ func NewTriggerWithParameters2[TTrigger comparable, TArg0, TArg1 any](underlying
 	var zero1 TArg1
 	return &TriggerWithParameters2[TTrigger, TArg0, TArg1]{
 		TriggerWithParameters: NewTriggerWithParameters(underlyingTrigger, reflect.TypeOf(zero0), reflect.TypeOf(zero1)),
+	}
+}
+
+// Handler wraps a typed function into a handler that unpacks arguments.
+func (t *TriggerWithParameters2[TTrigger, TArg0, TArg1]) Handler(fn func(TArg0, TArg1)) func(...any) {
+	return func(args ...any) {
+		var arg0 TArg0
+		var arg1 TArg1
+		if len(args) > 0 {
+			arg0, _ = args[0].(TArg0)
+		}
+		if len(args) > 1 {
+			arg1, _ = args[1].(TArg1)
+		}
+		fn(arg0, arg1)
 	}
 }
 
@@ -99,6 +125,25 @@ func NewTriggerWithParameters3[TTrigger comparable, TArg0, TArg1, TArg2 any](und
 	var zero2 TArg2
 	return &TriggerWithParameters3[TTrigger, TArg0, TArg1, TArg2]{
 		TriggerWithParameters: NewTriggerWithParameters(underlyingTrigger, reflect.TypeOf(zero0), reflect.TypeOf(zero1), reflect.TypeOf(zero2)),
+	}
+}
+
+// Handler wraps a typed function into a handler that unpacks arguments.
+func (t *TriggerWithParameters3[TTrigger, TArg0, TArg1, TArg2]) Handler(fn func(TArg0, TArg1, TArg2)) func(...any) {
+	return func(args ...any) {
+		var arg0 TArg0
+		var arg1 TArg1
+		var arg2 TArg2
+		if len(args) > 0 {
+			arg0, _ = args[0].(TArg0)
+		}
+		if len(args) > 1 {
+			arg1, _ = args[1].(TArg1)
+		}
+		if len(args) > 2 {
+			arg2, _ = args[2].(TArg2)
+		}
+		fn(arg0, arg1, arg2)
 	}
 }
 

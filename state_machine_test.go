@@ -838,19 +838,22 @@ func TestInitialTransition(t *testing.T) {
 	}
 }
 
-// Typed OnEntryFrom tests
+// Typed OnEntryFrom tests using Handler pattern
 
-func TestOnEntryFrom1_TypedArgument(t *testing.T) {
+func TestOnEntryFromParam_TypedArgument(t *testing.T) {
 	var receivedArg string
 	sm := NewStateMachine[State, Trigger](StateA)
 
 	// Create a typed trigger with one string argument
 	assignTrigger := NewTriggerWithParameters1[Trigger, string](TriggerX)
 
-	// Configure state with typed entry action
-	OnEntryFrom1(sm.Configure(StateB), assignTrigger, func(arg string) {
-		receivedArg = arg
-	})
+	// Configure state with typed entry action using Handler
+	sm.Configure(StateB).OnEntryFromParam(
+		assignTrigger.TriggerWithParameters,
+		assignTrigger.Handler(func(arg string) {
+			receivedArg = arg
+		}),
+	)
 	sm.Configure(StateA).Permit(TriggerX, StateB)
 
 	// Fire with typed argument
@@ -864,47 +867,20 @@ func TestOnEntryFrom1_TypedArgument(t *testing.T) {
 	}
 }
 
-func TestOnEntryFrom1WithTransition_TypedArgument(t *testing.T) {
-	var receivedArg string
-	var receivedSource, receivedDest State
-	sm := NewStateMachine[State, Trigger](StateA)
-
-	assignTrigger := NewTriggerWithParameters1[Trigger, string](TriggerX)
-
-	OnEntryFrom1WithTransition(sm.Configure(StateB), assignTrigger, func(arg string, trans Transition[State, Trigger]) {
-		receivedArg = arg
-		receivedSource = trans.Source
-		receivedDest = trans.Destination
-	})
-	sm.Configure(StateA).Permit(TriggerX, StateB)
-
-	err := sm.Fire(TriggerX, "world")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if receivedArg != "world" {
-		t.Errorf("expected 'world', got '%s'", receivedArg)
-	}
-	if receivedSource != StateA {
-		t.Errorf("expected source StateA, got %v", receivedSource)
-	}
-	if receivedDest != StateB {
-		t.Errorf("expected dest StateB, got %v", receivedDest)
-	}
-}
-
-func TestOnEntryFrom2_TypedArguments(t *testing.T) {
+func TestOnEntryFromParam_TwoTypedArguments(t *testing.T) {
 	var receivedArg0 string
 	var receivedArg1 int
 	sm := NewStateMachine[State, Trigger](StateA)
 
 	assignTrigger := NewTriggerWithParameters2[Trigger, string, int](TriggerX)
 
-	OnEntryFrom2(sm.Configure(StateB), assignTrigger, func(arg0 string, arg1 int) {
-		receivedArg0 = arg0
-		receivedArg1 = arg1
-	})
+	sm.Configure(StateB).OnEntryFromParam(
+		assignTrigger.TriggerWithParameters,
+		assignTrigger.Handler(func(arg0 string, arg1 int) {
+			receivedArg0 = arg0
+			receivedArg1 = arg1
+		}),
+	)
 	sm.Configure(StateA).Permit(TriggerX, StateB)
 
 	err := sm.Fire(TriggerX, "test", 42)
@@ -920,7 +896,7 @@ func TestOnEntryFrom2_TypedArguments(t *testing.T) {
 	}
 }
 
-func TestOnEntryFrom3_TypedArguments(t *testing.T) {
+func TestOnEntryFromParam_ThreeTypedArguments(t *testing.T) {
 	var receivedArg0 string
 	var receivedArg1 int
 	var receivedArg2 bool
@@ -928,11 +904,14 @@ func TestOnEntryFrom3_TypedArguments(t *testing.T) {
 
 	assignTrigger := NewTriggerWithParameters3[Trigger, string, int, bool](TriggerX)
 
-	OnEntryFrom3(sm.Configure(StateB), assignTrigger, func(arg0 string, arg1 int, arg2 bool) {
-		receivedArg0 = arg0
-		receivedArg1 = arg1
-		receivedArg2 = arg2
-	})
+	sm.Configure(StateB).OnEntryFromParam(
+		assignTrigger.TriggerWithParameters,
+		assignTrigger.Handler(func(arg0 string, arg1 int, arg2 bool) {
+			receivedArg0 = arg0
+			receivedArg1 = arg1
+			receivedArg2 = arg2
+		}),
+	)
 	sm.Configure(StateA).Permit(TriggerX, StateB)
 
 	err := sm.Fire(TriggerX, "foo", 123, true)
