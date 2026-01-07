@@ -1,8 +1,8 @@
-# Plan: Unified OnEntry with Typed StateConfiguration
+# Plan: Unified OnEntry with Transition (Args as any)
 
 ## Goal
 
-Simplify the API by having ONE `OnEntry` method that always receives a typed `Transition[S, T, A]`. Each `StateConfiguration` carries its own Args type.
+Simplify the API by having ONE `OnEntry` method that receives `Transition[S, T]` with `Args` as `any`. User does type assertion when needed.
 
 ## Current API (Multiple Variants)
 
@@ -22,24 +22,26 @@ stateless.OnEntryFromWithTransition[S, T, Args](config, trigger, func(ctx, t) er
 ```go
 sm := NewStateMachine[State, Trigger](initial)
 
-// Chaining works - all methods return *StateConfiguration[S, T, A]
-stateless.Configure[State, Trigger, AssignArgs](sm, Assigned).
+// Single OnEntry - receives Transition with Args as any
+sm.Configure(Assigned).
     Permit(StartWork, InProgress).
     PermitReentry(Assign).
-    OnEntry(func(ctx context.Context, t Transition[State, Trigger, AssignArgs]) error {
-        fmt.Println("Assigned to:", t.Args.Assignee)
+    OnEntry(func(ctx context.Context, t Transition[State, Trigger]) error {
+        // Type assertion when needed
+        if args, ok := t.Args.(AssignArgs); ok {
+            fmt.Println("Assigned to:", args.Assignee)
+        }
         return nil
     }).
     OnExit(func(ctx context.Context) error {
-        // OnExit has no args - exit trigger may have different args type
-        fmt.Println("Leaving Assigned state")
+        fmt.Println("Leaving Assigned")
         return nil
     })
 
-// For states without args, use NoArgs
-stateless.Configure[State, Trigger, NoArgs](sm, Open).
+// Simple case - no args needed
+sm.Configure(Open).
     Permit(Assign, Assigned).
-    OnEntry(func(ctx context.Context, t Transition[State, Trigger, NoArgs]) error {
+    OnEntry(func(ctx context.Context, t Transition[State, Trigger]) error {
         fmt.Println("Entered from:", t.Source)
         return nil
     })
@@ -47,102 +49,86 @@ stateless.Configure[State, Trigger, NoArgs](sm, Open).
 
 ## Changes Required
 
-### 1. Modify StateConfiguration struct
+### 1. Keep StateConfiguration as is (no TArgs)
 
 ```go
-// Before
+// No change needed
 type StateConfiguration[TState, TTrigger comparable] struct { ... }
-
-// After
-type StateConfiguration[TState, TTrigger comparable, TArgs any] struct { ... }
 ```
 
-### 2. Replace sm.Configure() with standalone function
+### 2. Keep sm.Configure() method
 
 ```go
-// Remove method
-// func (sm *StateMachine[S, T]) Configure(state S) *StateConfiguration[S, T]
-
-// Add standalone function (required because Go doesn't allow method type params)
-func Configure[TState, TTrigger comparable, TArgs any](
-    sm *StateMachine[TState, TTrigger],
-    state TState,
-) *StateConfiguration[TState, TTrigger, TArgs]
+// No change needed
+func (sm *StateMachine[S, T]) Configure(state S) *StateConfiguration[S, T]
 ```
 
-### 3. Simplify OnEntry to single method (with typed args)
+### 3. Transition with Args as any
 
 ```go
-// Single unified OnEntry - receives typed Transition
-func (sc *StateConfiguration[S, T, A]) OnEntry(
-    action func(ctx context.Context, t Transition[S, T, A]) error,
-) *StateConfiguration[S, T, A]
+type Transition[TState, TTrigger comparable] struct {
+    Source      TState
+    Destination TState
+    Trigger     TTrigger
+    Args        any  // User does type assertion
+}
 ```
 
-### 4. OnExit without args
-
-Exit can be triggered by any trigger with any args type, so OnExit has no typed args:
+### 4. Simplify OnEntry to single method
 
 ```go
-// OnExit - no args (exit trigger may have different args type)
-func (sc *StateConfiguration[S, T, A]) OnExit(
+// Single unified OnEntry - receives Transition
+func (sc *StateConfiguration[S, T]) OnEntry(
+    action func(ctx context.Context, t Transition[S, T]) error,
+) *StateConfiguration[S, T]
+```
+
+### 5. OnExit without args
+
+```go
+// OnExit - no transition info (exit trigger may differ)
+func (sc *StateConfiguration[S, T]) OnExit(
     action func(ctx context.Context) error,
-) *StateConfiguration[S, T, A]
+) *StateConfiguration[S, T]
 ```
 
-### 5. All methods return same type (chaining)
+### 6. InternalTransition without args
 
 ```go
-func (sc *StateConfiguration[S, T, A]) Permit(trigger T, dest S) *StateConfiguration[S, T, A]
-func (sc *StateConfiguration[S, T, A]) PermitIf(...) *StateConfiguration[S, T, A]
-func (sc *StateConfiguration[S, T, A]) PermitReentry(trigger T) *StateConfiguration[S, T, A]
-func (sc *StateConfiguration[S, T, A]) Ignore(trigger T) *StateConfiguration[S, T, A]
-func (sc *StateConfiguration[S, T, A]) SubstateOf(parent S) *StateConfiguration[S, T, A]
-func (sc *StateConfiguration[S, T, A]) OnEntry(action func(ctx, t Transition[S,T,A]) error) *StateConfiguration[S, T, A]
-func (sc *StateConfiguration[S, T, A]) OnExit(action func(ctx) error) *StateConfiguration[S, T, A]
-func (sc *StateConfiguration[S, T, A]) OnActivate(action func(ctx) error) *StateConfiguration[S, T, A]
-func (sc *StateConfiguration[S, T, A]) OnDeactivate(action func(ctx) error) *StateConfiguration[S, T, A]
-// etc.
+// InternalTransition - just context
+func (sc *StateConfiguration[S, T]) InternalTransition(
+    trigger T,
+    action func(ctx context.Context) error,
+) *StateConfiguration[S, T]
 ```
 
-### 6. Remove redundant methods/functions
+### 7. Remove redundant methods/functions
 
 Remove:
-- `sm.Configure()` method - replaced by standalone `Configure[S,T,A]()`
 - `OnEntryFrom()` - use `if t.Trigger == X` inside OnEntry
-- `OnEntryWithTransition()` standalone - now a method
-- `OnEntryFromWithTransition()` standalone - removed
-- `OnExitWithTransition()` standalone - removed (OnExit has no args)
-
-### 7. Update InternalTransition
-
-```go
-func (sc *StateConfiguration[S, T, A]) InternalTransition(
-    trigger T,
-    action func(ctx context.Context, t Transition[S, T, A]) error,
-) *StateConfiguration[S, T, A]
-```
+- `OnEntryWithTransition()` standalone function
+- `OnEntryFromWithTransition()` standalone function
+- `OnExitWithTransition()` standalone function
 
 ### 8. OnActivate/OnDeactivate (no changes)
 
-These don't have transitions, keep simple signature:
 ```go
-func (sc *StateConfiguration[S, T, A]) OnActivate(
+func (sc *StateConfiguration[S, T]) OnActivate(
     action func(ctx context.Context) error,
-) *StateConfiguration[S, T, A]
+) *StateConfiguration[S, T]
 
-func (sc *StateConfiguration[S, T, A]) OnDeactivate(
+func (sc *StateConfiguration[S, T]) OnDeactivate(
     action func(ctx context.Context) error,
-) *StateConfiguration[S, T, A]
+) *StateConfiguration[S, T]
 ```
 
 ## Summary of Action Signatures
 
-| Method | Signature | Reason |
-|--------|-----------|--------|
-| `OnEntry` | `func(ctx, t Transition[S,T,A]) error` | Entry args are from incoming trigger |
-| `OnExit` | `func(ctx) error` | Exit trigger may have different args |
-| `InternalTransition` | `func(ctx, t Transition[S,T,A]) error` | Same trigger, typed args |
+| Method | Signature | Notes |
+|--------|-----------|-------|
+| `OnEntry` | `func(ctx, t Transition[S,T]) error` | Args is `any`, type assert if needed |
+| `OnExit` | `func(ctx) error` | No transition info |
+| `InternalTransition` | `func(ctx) error` | No transition info |
 | `OnActivate` | `func(ctx) error` | No transition |
 | `OnDeactivate` | `func(ctx) error` | No transition |
 
@@ -156,10 +142,6 @@ sm.Configure(Open).
     Permit(Assign, Assigned).
     OnEntry(func(ctx context.Context) error {
         fmt.Println("Opened")
-        return nil
-    }).
-    OnExit(func(ctx context.Context) error {
-        fmt.Println("Leaving Open")
         return nil
     })
 
@@ -175,50 +157,46 @@ stateless.OnEntryWithTransition[State, Trigger, AssignArgs](
 ```go
 sm := NewStateMachine[State, Trigger](Open)
 
-stateless.Configure[State, Trigger, NoArgs](sm, Open).
+sm.Configure(Open).
     Permit(Assign, Assigned).
-    OnEntry(func(ctx context.Context, t Transition[State, Trigger, NoArgs]) error {
+    OnEntry(func(ctx context.Context, t Transition[State, Trigger]) error {
         fmt.Println("Opened, from:", t.Source)
-        return nil
-    }).
-    OnExit(func(ctx context.Context) error {
-        fmt.Println("Leaving Open")
         return nil
     })
 
-stateless.Configure[State, Trigger, AssignArgs](sm, Assigned).
+sm.Configure(Assigned).
     Permit(StartWork, InProgress).
-    OnEntry(func(ctx context.Context, t Transition[State, Trigger, AssignArgs]) error {
-        fmt.Println("Assigned to:", t.Args.Assignee)
-        return nil
-    }).
-    OnExit(func(ctx context.Context) error {
-        fmt.Println("Leaving Assigned")
+    OnEntry(func(ctx context.Context, t Transition[State, Trigger]) error {
+        if args, ok := t.Args.(AssignArgs); ok {
+            fmt.Println("Assigned to:", args.Assignee)
+        }
         return nil
     })
 ```
 
 ## Files to Modify
 
-1. `state_configuration.go` - Add TArgs type parameter, update all methods
-2. `state_machine.go` - Remove Configure method, add standalone Configure function
-3. `transition.go` - Ensure Transition[S, T, A] works correctly
+1. `transition.go` - Remove TArgs type parameter, Args becomes `any`
+2. `state_configuration.go` - Simplify OnEntry/OnExit signatures, remove OnEntryFrom etc.
+3. `state_machine.go` - Remove standalone generic functions
 4. `state_representation.go` - Update action storage/execution
 5. `action_behaviour.go` - Update entry/exit action types
 6. `state_machine_test.go` - Update all tests
-7. `graph/` - Update graph generation if needed
+7. `graph/` - Update if needed
 8. `examples/` - Update examples
 9. `README.md` - Update documentation
 
 ## Decisions Made
 
-1. **No backwards compatibility** - Remove `sm.Configure()` entirely
-2. **Chaining preserved** - All methods return `*StateConfiguration[S, T, A]`
-3. **OnEntryFrom removed** - Use conditional `if t.Trigger == X` in OnEntry
-4. **OnExit without args** - Exit trigger may have different args type
+1. **Args as `any`** - User does type assertion when needed
+2. **Keep `sm.Configure()`** - No extra type parameter needed
+3. **OnEntry receives Transition** - Has Source, Destination, Trigger, Args
+4. **OnExit/InternalTransition** - Just context, no transition info
+5. **Remove OnEntryFrom** - Use `if t.Trigger == X` in OnEntry
 
-## Risks
+## Benefits
 
-- Breaking change for all existing users
-- More verbose for simple cases (must use `NoArgs`)
-- Every state configuration requires explicit type parameters
+- Simpler API - no complex generics
+- Keeps chaining working naturally
+- Backwards compatible pattern (type assertion is common in Go)
+- No standalone generic functions needed
