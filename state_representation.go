@@ -119,8 +119,19 @@ func (sr *StateRepresentation[TState, TTrigger]) CanHandle(trigger TTrigger, arg
 // TryFindHandler attempts to find a handler for the specified trigger.
 func (sr *StateRepresentation[TState, TTrigger]) TryFindHandler(trigger TTrigger, args any) *TriggerBehaviourResult[TState, TTrigger] {
 	result := sr.TryFindLocalHandler(trigger, args)
-	if result == nil && sr.superstate != nil {
-		result = sr.superstate.TryFindHandler(trigger, args)
+
+	// If no local handler found, or local handler has unmet guards (Handler is nil),
+	// check superstate for a handler
+	if sr.superstate != nil && (result == nil || result.Handler == nil) {
+		superstateResult := sr.superstate.TryFindHandler(trigger, args)
+		// If superstate has a valid handler, use it
+		if superstateResult != nil && superstateResult.Handler != nil {
+			return superstateResult
+		}
+		// If no result from local, use superstate result (even if no handler)
+		if result == nil {
+			return superstateResult
+		}
 	}
 	return result
 }

@@ -1576,3 +1576,104 @@ func TestPermitDynamicIf_Permits_Reentry_When_GuardCondition_Met(t *testing.T) {
 		t.Errorf("expected StateA, got %v", sm.State())
 	}
 }
+
+// Ignored trigger behaviour tests (ported from .NET Stateless)
+
+func TestIgnore_StateRemainsUnchanged(t *testing.T) {
+	sm := NewStateMachine[State, Trigger](StateA)
+	sm.Configure(StateA).Ignore(TriggerX)
+
+	if err := sm.Fire(TriggerX, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if sm.State() != StateA {
+		t.Errorf("expected StateA, got %v", sm.State())
+	}
+}
+
+func TestIgnoredTriggerBehaviour_ExposesCorrectUnderlyingTrigger(t *testing.T) {
+	ignored := NewIgnoredTriggerBehaviour[State, Trigger](TriggerX, EmptyTransitionGuard)
+
+	if ignored.GetTrigger() != TriggerX {
+		t.Errorf("expected TriggerX, got %v", ignored.GetTrigger())
+	}
+}
+
+func TestIgnoredTriggerBehaviour_WhenGuardConditionFalse_IsGuardConditionMetIsFalse(t *testing.T) {
+	guardFalse := func() bool { return false }
+	ignored := NewIgnoredTriggerBehaviour[State, Trigger](TriggerX, NewTransitionGuard(guardFalse, ""))
+
+	if ignored.GuardConditionsMet(nil) {
+		t.Error("expected GuardConditionsMet to be false")
+	}
+}
+
+func TestIgnoredTriggerBehaviour_WhenGuardConditionTrue_IsGuardConditionMetIsTrue(t *testing.T) {
+	guardTrue := func() bool { return true }
+	ignored := NewIgnoredTriggerBehaviour[State, Trigger](TriggerX, NewTransitionGuard(guardTrue, ""))
+
+	if !ignored.GuardConditionsMet(nil) {
+		t.Error("expected GuardConditionsMet to be true")
+	}
+}
+
+func TestIgnoredTriggerMustBeIgnoredSync(t *testing.T) {
+	// In a substate hierarchy, ignored trigger in substate should be properly ignored
+	// and not cause the superstate's transition to execute
+	sm := NewStateMachine[State, Trigger](StateB)
+
+	sm.Configure(StateA).
+		Permit(TriggerX, StateC)
+
+	sm.Configure(StateB).
+		SubstateOf(StateA).
+		Ignore(TriggerX)
+
+	// This should not panic and should stay in StateB
+	if err := sm.Fire(TriggerX, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if sm.State() != StateB {
+		t.Errorf("expected StateB (trigger should be ignored), got %v", sm.State())
+	}
+}
+
+func TestIgnoreIfTrueTriggerMustBeIgnored(t *testing.T) {
+	sm := NewStateMachine[State, Trigger](StateB)
+
+	sm.Configure(StateA).
+		Permit(TriggerX, StateC)
+
+	sm.Configure(StateB).
+		SubstateOf(StateA).
+		IgnoreIf(TriggerX, func() bool { return true })
+
+	if err := sm.Fire(TriggerX, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if sm.State() != StateB {
+		t.Errorf("expected StateB, got %v", sm.State())
+	}
+}
+
+func TestIgnoreIfFalseTriggerMustNotBeIgnored(t *testing.T) {
+	sm := NewStateMachine[State, Trigger](StateB)
+
+	sm.Configure(StateA).
+		Permit(TriggerX, StateC)
+
+	sm.Configure(StateB).
+		SubstateOf(StateA).
+		IgnoreIf(TriggerX, func() bool { return false })
+
+	if err := sm.Fire(TriggerX, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if sm.State() != StateC {
+		t.Errorf("expected StateC, got %v", sm.State())
+	}
+}
