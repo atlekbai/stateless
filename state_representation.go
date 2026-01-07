@@ -163,9 +163,11 @@ func (sr *StateRepresentation[TState, TTrigger]) TryFindLocalHandler(trigger TTr
 	}
 
 	if len(possibleBehaviours) > 1 {
-		// Multiple handlers met guard conditions - this is typically an error
-		// Return nil to indicate ambiguity (the caller should handle this)
-		return nil
+		// Multiple handlers met guard conditions - this is a configuration error
+		return &TriggerBehaviourResult[TState, TTrigger]{
+			Handler:               nil,
+			MultipleHandlersFound: true,
+		}
 	}
 
 	if len(possibleBehaviours) == 1 {

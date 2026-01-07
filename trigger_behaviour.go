@@ -169,4 +169,7 @@ type TriggerBehaviourResult[TState, TTrigger comparable] struct {
 
 	// UnmetGuardConditions contains descriptions of any unmet guard conditions.
 	UnmetGuardConditions []string
+
+	// MultipleHandlersFound indicates if multiple handlers matched (configuration error).
+	MultipleHandlersFound bool
 }

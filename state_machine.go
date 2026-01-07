@@ -219,6 +219,12 @@ func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, trig
 	// Try to find a handler for the trigger
 	result := representation.TryFindHandler(trigger, args)
 	if result == nil || result.Handler == nil {
+		// Check for ambiguous handlers (configuration error)
+		if result != nil && result.MultipleHandlersFound {
+			return &InvalidOperationError{
+				Message: fmt.Sprintf("multiple permitted transitions are configured from state '%v' for trigger '%v'; guards should be mutually exclusive", source, trigger),
+			}
+		}
 		return sm.handleUnhandledTrigger(source, trigger, result)
 	}
 
