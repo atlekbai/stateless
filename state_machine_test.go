@@ -354,7 +354,7 @@ func TestInternalTransition(t *testing.T) {
 
 	sm := NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).
-		InternalTransition(TriggerX, func(transition internalTransition[State, Trigger]) {
+		InternalTransition(TriggerX, func() {
 			actionCount++
 		}).
 		OnEntry(func() { entryCount++ }).

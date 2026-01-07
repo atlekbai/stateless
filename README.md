@@ -104,7 +104,7 @@ sm.Configure(StateA).
 
 ```go
 sm.Configure(StateA).
-    InternalTransition(TriggerX, func(t stateless.Transition[State, Trigger], args ...any) {
+    InternalTransition(TriggerX, func() {
         // Action executed without state change
     })
 ```

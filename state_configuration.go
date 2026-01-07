@@ -202,10 +202,10 @@ func (sc *StateConfiguration[TState, TTrigger]) PermitDynamicArgsIf(
 // and re-entered, and entry/exit actions are not executed.
 func (sc *StateConfiguration[TState, TTrigger]) InternalTransition(
 	trigger TTrigger,
-	action func(transition internalTransition[TState, TTrigger]),
+	action func(),
 ) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddTriggerBehaviour(
-		NewSyncInternalTriggerBehaviour(trigger, nil, action, ""),
+		NewSyncInternalTriggerBehaviour(trigger, nil, func(t internalTransition[TState, TTrigger]) { action() }, ""),
 	)
 	return sc
 }
@@ -214,8 +214,8 @@ func (sc *StateConfiguration[TState, TTrigger]) InternalTransition(
 // and re-entered, if the guard condition is met.
 func (sc *StateConfiguration[TState, TTrigger]) InternalTransitionIf(
 	trigger TTrigger,
-	guard func(args any) bool,
-	action func(transition internalTransition[TState, TTrigger]),
+	guard func() bool,
+	action func(),
 	guardDescription ...string,
 ) *StateConfiguration[TState, TTrigger] {
 	desc := ""
@@ -223,7 +223,7 @@ func (sc *StateConfiguration[TState, TTrigger]) InternalTransitionIf(
 		desc = guardDescription[0]
 	}
 	sc.representation.AddTriggerBehaviour(
-		NewSyncInternalTriggerBehaviour(trigger, guard, action, desc),
+		NewSyncInternalTriggerBehaviour(trigger, func(args any) bool { return guard() }, func(t internalTransition[TState, TTrigger]) { action() }, desc),
 	)
 	return sc
 }
@@ -386,6 +386,22 @@ func OnExitWithTransition[TState, TTrigger comparable, TArgs any](
 			},
 			CreateInvocationInfo(action, "", TimingSynchronous),
 		),
+	)
+	return sc
+}
+
+// InternalTransitionWithTransition configures an internal transition with typed transition info.
+// This is a package-level function because Go methods cannot have additional type parameters.
+func InternalTransitionWithTransition[TState, TTrigger comparable, TArgs any](
+	sc *StateConfiguration[TState, TTrigger],
+	trigger TTrigger,
+	action func(Transition[TState, TTrigger, TArgs]),
+) *StateConfiguration[TState, TTrigger] {
+	sc.representation.AddTriggerBehaviour(
+		NewSyncInternalTriggerBehaviour(trigger, nil, func(t internalTransition[TState, TTrigger]) {
+			typedTransition := toTypedTransition[TState, TTrigger, TArgs](t)
+			action(typedTransition)
+		}, ""),
 	)
 	return sc
 }
