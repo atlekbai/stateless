@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -80,11 +81,13 @@ func main() {
 		Permit(CallConnected, Connected)
 
 	sm.Configure(Connected).
-		OnEntry(func() {
+		OnEntry(func(ctx context.Context) error {
 			fmt.Println("  -> Call connected!")
+			return nil
 		}).
-		OnExit(func() {
+		OnExit(func(ctx context.Context) error {
 			fmt.Println("  -> Call ended.")
+			return nil
 		}).
 		Permit(LeftMessage, OffHook).
 		Permit(HungUp, OffHook).

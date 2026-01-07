@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -77,7 +78,7 @@ func NewBug(id int, title string) *Bug {
 
 	// Configure states
 	bug.sm.Configure(Open).
-		OnEntry(func() { fmt.Printf("  Bug #%d is now open\n", bug.ID) }).
+		OnEntry(func(ctx context.Context) error { fmt.Printf("  Bug #%d is now open\n", bug.ID); return nil }).
 		Permit(Assign, Assigned)
 
 	// Configure Assigned state with typed entry action
@@ -85,13 +86,14 @@ func NewBug(id int, title string) *Bug {
 		PermitReentry(Assign). // Can be reassigned
 		Permit(StartWork, InProgress)
 
-	stateless.OnEntryWithTransition[State, Trigger, AssignArgs](assignedConfig, func(t stateless.Transition[State, Trigger, AssignArgs]) {
+	stateless.OnEntryWithTransition[State, Trigger, AssignArgs](assignedConfig, func(ctx context.Context, t stateless.Transition[State, Trigger, AssignArgs]) error {
 		bug.Assignee = t.Args.Assignee
 		fmt.Printf("  Bug #%d assigned to: %s\n", bug.ID, t.Args.Assignee)
+		return nil
 	})
 
 	bug.sm.Configure(InProgress).
-		OnEntry(func() { fmt.Printf("  Work started on bug #%d\n", bug.ID) }).
+		OnEntry(func(ctx context.Context) error { fmt.Printf("  Work started on bug #%d\n", bug.ID); return nil }).
 		PermitIf(Resolve, Resolved, func() bool {
 			return bug.Assignee != ""
 		}, "Must have an assignee to resolve")
@@ -101,19 +103,21 @@ func NewBug(id int, title string) *Bug {
 		Permit(Close, Closed).
 		Permit(Reopen, Reopened)
 
-	stateless.OnEntryWithTransition[State, Trigger, ResolveArgs](resolvedConfig, func(t stateless.Transition[State, Trigger, ResolveArgs]) {
+	stateless.OnEntryWithTransition[State, Trigger, ResolveArgs](resolvedConfig, func(ctx context.Context, t stateless.Transition[State, Trigger, ResolveArgs]) error {
 		bug.Resolution = t.Args.Resolution
 		fmt.Printf("  Bug #%d resolved: %s\n", bug.ID, t.Args.Resolution)
+		return nil
 	})
 
 	bug.sm.Configure(Closed).
-		OnEntry(func() { fmt.Printf("  Bug #%d closed\n", bug.ID) }).
+		OnEntry(func(ctx context.Context) error { fmt.Printf("  Bug #%d closed\n", bug.ID); return nil }).
 		Permit(Reopen, Reopened)
 
 	bug.sm.Configure(Reopened).
-		OnEntry(func() {
+		OnEntry(func(ctx context.Context) error {
 			bug.Resolution = ""
 			fmt.Printf("  Bug #%d reopened\n", bug.ID)
+			return nil
 		}).
 		Permit(Assign, Assigned)
 

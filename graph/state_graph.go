@@ -2,6 +2,7 @@ package graph
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/atlekbai/stateless"
@@ -276,15 +277,20 @@ func (sg *StateGraph) ToGraph(style GraphStyle) string {
 
 	sb.WriteString(style.GetPrefix())
 
-	// Format clusters (superstates)
-	for _, state := range sg.States {
+	// Get sorted state names for deterministic output
+	sortedStateNames := sg.getSortedStateNames()
+
+	// Format clusters (superstates) in sorted order
+	for _, stateName := range sortedStateNames {
+		state := sg.States[stateName]
 		if superState, ok := sg.isSuperState(state); ok {
 			sb.WriteString(style.FormatOneCluster(superState))
 		}
 	}
 
-	// Format regular states (not superstates and not substates)
-	for _, state := range sg.States {
+	// Format regular states (not superstates and not substates) in sorted order
+	for _, stateName := range sortedStateNames {
+		state := sg.States[stateName]
 		if _, ok := sg.isSuperState(state); ok {
 			continue
 		}
@@ -299,8 +305,11 @@ func (sg *StateGraph) ToGraph(style GraphStyle) string {
 		sb.WriteString(style.FormatOneDecisionNode(dec.NodeName, dec.Method.Description()))
 	}
 
+	// Sort transitions for deterministic output
+	sortedTransitions := sg.getSortedTransitions()
+
 	// Format transitions
-	lines := style.FormatAllTransitions(sg.Transitions, sg.Decisions)
+	lines := style.FormatAllTransitions(sortedTransitions, sg.Decisions)
 	for _, line := range lines {
 		sb.WriteString("\n")
 		sb.WriteString(line)
@@ -310,6 +319,54 @@ func (sg *StateGraph) ToGraph(style GraphStyle) string {
 	sb.WriteString(style.GetInitialTransition(sg.InitialState))
 
 	return sb.String()
+}
+
+// getSortedStateNames returns state names in sorted order for deterministic output.
+func (sg *StateGraph) getSortedStateNames() []string {
+	names := make([]string, 0, len(sg.States))
+	for name := range sg.States {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// getSortedTransitions returns transitions sorted by source state, then destination state, then trigger.
+func (sg *StateGraph) getSortedTransitions() []*Transition {
+	sorted := make([]*Transition, len(sg.Transitions))
+	copy(sorted, sg.Transitions)
+	sort.Slice(sorted, func(i, j int) bool {
+		ti, tj := sorted[i], sorted[j]
+		// Sort by source state name
+		srcI := ""
+		srcJ := ""
+		if ti.SourceState != nil {
+			srcI = ti.SourceState.StateName
+		}
+		if tj.SourceState != nil {
+			srcJ = tj.SourceState.StateName
+		}
+		if srcI != srcJ {
+			return srcI < srcJ
+		}
+		// Then by destination state name
+		dstI := ""
+		dstJ := ""
+		if ti.DestinationState != nil {
+			dstI = ti.DestinationState.StateName
+		}
+		if tj.DestinationState != nil {
+			dstJ = tj.DestinationState.StateName
+		}
+		if dstI != dstJ {
+			return dstI < dstJ
+		}
+		// Then by trigger
+		trigI := fmt.Sprintf("%v", ti.Trigger.UnderlyingTrigger)
+		trigJ := fmt.Sprintf("%v", tj.Trigger.UnderlyingTrigger)
+		return trigI < trigJ
+	})
+	return sorted
 }
 
 // isSuperState checks if a state is a superstate.

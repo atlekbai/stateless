@@ -1,6 +1,7 @@
 package graph
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -145,7 +146,7 @@ func TestNewStateGraph(t *testing.T) {
 	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
 	sm.Configure(TestStateA).
 		Permit(TestTriggerX, TestStateB).
-		OnEntry(func() {})
+		OnEntry(func(ctx context.Context) error { return nil })
 	sm.Configure(TestStateB).
 		PermitReentry(TestTriggerY)
 
@@ -432,7 +433,7 @@ func TestDotGraph_OnEntryWithAnonymousActionAndDescription(t *testing.T) {
 
 	// Note: Go doesn't have description parameter on OnEntry, use OnEntryWithDescription if available
 	// For now, we test that entry actions appear in graph
-	sm.Configure(TestStateA).OnEntry(func() {})
+	sm.Configure(TestStateA).OnEntry(func(ctx context.Context) error { return nil })
 
 	dotGraph := UmlDotGraph(sm.GetInfo())
 
@@ -465,11 +466,11 @@ func TestDotGraph_TransitionWithIgnore(t *testing.T) {
 func TestDotGraph_TransitionWithIgnoreAndEntry(t *testing.T) {
 	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
 	sm.Configure(TestStateA).
-		OnEntry(func() {}).
+		OnEntry(func(ctx context.Context) error { return nil }).
 		Ignore(TestTriggerY).
 		Permit(TestTriggerX, TestStateB)
 	sm.Configure(TestStateB).
-		OnEntry(func() {}).
+		OnEntry(func(ctx context.Context) error { return nil }).
 		PermitReentry(TestTriggerZ)
 
 	dotGraph := UmlDotGraph(sm.GetInfo())
@@ -483,9 +484,9 @@ func TestDotGraph_TransitionWithIgnoreAndEntry(t *testing.T) {
 func TestDotGraph_InternalTransitionDoesNotShowEntryExitFunctions(t *testing.T) {
 	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
 	sm.Configure(TestStateA).
-		OnEntry(func() {}).
-		OnExit(func() {}).
-		InternalTransition(TestTriggerX, func() {})
+		OnEntry(func(ctx context.Context) error { return nil }).
+		OnExit(func(ctx context.Context) error { return nil }).
+		InternalTransition(TestTriggerX, func(ctx context.Context) error { return nil })
 
 	dotGraph := UmlDotGraph(sm.GetInfo())
 
@@ -561,7 +562,7 @@ func TestDotGraph_ReentrantTransitionShowsEntryAction(t *testing.T) {
 	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
 	sm.Configure(TestStateA).Permit(TestTriggerX, TestStateB)
 	sm.Configure(TestStateB).
-		OnEntryFrom(TestTriggerX, func() {}).
+		OnEntryFrom(TestTriggerX, func(ctx context.Context) error { return nil }).
 		PermitReentry(TestTriggerX)
 
 	dotGraph := UmlDotGraph(sm.GetInfo())
@@ -789,7 +790,7 @@ func TestMermaidGraph_StateNamesWithSpacesAreAliased(t *testing.T) {
 func TestMermaidGraph_OnEntryWithNamedDelegateAction(t *testing.T) {
 	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
 	sm.Configure(TestStateA).Permit(TestTriggerX, TestStateB)
-	sm.Configure(TestStateB).OnEntry(func() {})
+	sm.Configure(TestStateB).OnEntry(func(ctx context.Context) error { return nil })
 
 	mermaidGraph := MermaidGraph(sm.GetInfo(), nil)
 
@@ -805,7 +806,7 @@ func TestMermaidGraph_OnEntryWithNamedDelegateAction(t *testing.T) {
 
 func TestMermaidGraph_InternalTransition(t *testing.T) {
 	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
-	sm.Configure(TestStateA).InternalTransition(TestTriggerX, func() {})
+	sm.Configure(TestStateA).InternalTransition(TestTriggerX, func(ctx context.Context) error { return nil })
 
 	mermaidGraph := MermaidGraph(sm.GetInfo(), nil)
 
@@ -818,7 +819,7 @@ func TestMermaidGraph_InternalTransition(t *testing.T) {
 func TestMermaidGraph_OnEntryFromTrigger(t *testing.T) {
 	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
 	sm.Configure(TestStateA).Permit(TestTriggerX, TestStateB)
-	sm.Configure(TestStateB).OnEntryFrom(TestTriggerX, func() {})
+	sm.Configure(TestStateB).OnEntryFrom(TestTriggerX, func(ctx context.Context) error { return nil })
 
 	mermaidGraph := MermaidGraph(sm.GetInfo(), nil)
 

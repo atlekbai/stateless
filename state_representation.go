@@ -1,6 +1,7 @@
 package stateless
 
 import (
+	"context"
 	"fmt"
 )
 
@@ -216,10 +217,10 @@ func (sr *StateRepresentation[TState, TTrigger]) AddDeactivateAction(action Deac
 }
 
 // Enter executes entry actions for this state.
-func (sr *StateRepresentation[TState, TTrigger]) Enter(transition internalTransition[TState, TTrigger]) error {
+func (sr *StateRepresentation[TState, TTrigger]) Enter(ctx context.Context, transition internalTransition[TState, TTrigger]) error {
 	// Reentry - execute entry actions for this state only
 	if transition.Source == transition.Destination {
-		return sr.ExecuteEntryActions(transition)
+		return sr.ExecuteEntryActions(ctx, transition)
 	}
 
 	// If source is not in this state's hierarchy, we need to enter
@@ -227,28 +228,28 @@ func (sr *StateRepresentation[TState, TTrigger]) Enter(transition internalTransi
 		// For initial transitions, don't enter superstate (we're already in it)
 		// For regular transitions, enter superstate first
 		if sr.superstate != nil && !transition.isInitial {
-			if err := sr.superstate.Enter(transition); err != nil {
+			if err := sr.superstate.Enter(ctx, transition); err != nil {
 				return err
 			}
 		}
-		return sr.ExecuteEntryActions(transition)
+		return sr.ExecuteEntryActions(ctx, transition)
 	}
 
 	return nil
 }
 
 // Exit executes exit actions for this state.
-func (sr *StateRepresentation[TState, TTrigger]) Exit(transition internalTransition[TState, TTrigger]) error {
+func (sr *StateRepresentation[TState, TTrigger]) Exit(ctx context.Context, transition internalTransition[TState, TTrigger]) error {
 	if transition.Source == transition.Destination {
-		return sr.ExecuteExitActions(transition)
+		return sr.ExecuteExitActions(ctx, transition)
 	}
 
 	if !sr.Includes(transition.Destination) {
-		if err := sr.ExecuteExitActions(transition); err != nil {
+		if err := sr.ExecuteExitActions(ctx, transition); err != nil {
 			return err
 		}
 		if sr.superstate != nil {
-			return sr.superstate.Exit(transition)
+			return sr.superstate.Exit(ctx, transition)
 		}
 	}
 
@@ -256,9 +257,9 @@ func (sr *StateRepresentation[TState, TTrigger]) Exit(transition internalTransit
 }
 
 // ExecuteEntryActions executes all entry actions for this state.
-func (sr *StateRepresentation[TState, TTrigger]) ExecuteEntryActions(transition internalTransition[TState, TTrigger]) error {
+func (sr *StateRepresentation[TState, TTrigger]) ExecuteEntryActions(ctx context.Context, transition internalTransition[TState, TTrigger]) error {
 	for _, action := range sr.entryActions {
-		if err := action.Execute(transition); err != nil {
+		if err := action.Execute(ctx, transition); err != nil {
 			return err
 		}
 	}
@@ -266,9 +267,9 @@ func (sr *StateRepresentation[TState, TTrigger]) ExecuteEntryActions(transition 
 }
 
 // ExecuteExitActions executes all exit actions for this state.
-func (sr *StateRepresentation[TState, TTrigger]) ExecuteExitActions(transition internalTransition[TState, TTrigger]) error {
+func (sr *StateRepresentation[TState, TTrigger]) ExecuteExitActions(ctx context.Context, transition internalTransition[TState, TTrigger]) error {
 	for _, action := range sr.exitActions {
-		if err := action.Execute(transition); err != nil {
+		if err := action.Execute(ctx, transition); err != nil {
 			return err
 		}
 	}
@@ -276,33 +277,33 @@ func (sr *StateRepresentation[TState, TTrigger]) ExecuteExitActions(transition i
 }
 
 // Activate executes activation actions for this state and its superstates.
-func (sr *StateRepresentation[TState, TTrigger]) Activate() error {
+func (sr *StateRepresentation[TState, TTrigger]) Activate(ctx context.Context) error {
 	if sr.superstate != nil {
-		if err := sr.superstate.Activate(); err != nil {
+		if err := sr.superstate.Activate(ctx); err != nil {
 			return err
 		}
 	}
 
-	return sr.ExecuteActivateActions()
+	return sr.ExecuteActivateActions(ctx)
 }
 
 // Deactivate executes deactivation actions for this state and its superstates.
-func (sr *StateRepresentation[TState, TTrigger]) Deactivate() error {
-	if err := sr.ExecuteDeactivateActions(); err != nil {
+func (sr *StateRepresentation[TState, TTrigger]) Deactivate(ctx context.Context) error {
+	if err := sr.ExecuteDeactivateActions(ctx); err != nil {
 		return err
 	}
 
 	if sr.superstate != nil {
-		return sr.superstate.Deactivate()
+		return sr.superstate.Deactivate(ctx)
 	}
 
 	return nil
 }
 
 // ExecuteActivateActions executes all activation actions for this state.
-func (sr *StateRepresentation[TState, TTrigger]) ExecuteActivateActions() error {
+func (sr *StateRepresentation[TState, TTrigger]) ExecuteActivateActions(ctx context.Context) error {
 	for _, action := range sr.activateActions {
-		if err := action.Execute(); err != nil {
+		if err := action.Execute(ctx); err != nil {
 			return err
 		}
 	}
@@ -310,9 +311,9 @@ func (sr *StateRepresentation[TState, TTrigger]) ExecuteActivateActions() error 
 }
 
 // ExecuteDeactivateActions executes all deactivation actions for this state.
-func (sr *StateRepresentation[TState, TTrigger]) ExecuteDeactivateActions() error {
+func (sr *StateRepresentation[TState, TTrigger]) ExecuteDeactivateActions(ctx context.Context) error {
 	for _, action := range sr.deactivateActions {
-		if err := action.Execute(); err != nil {
+		if err := action.Execute(ctx); err != nil {
 			return err
 		}
 	}

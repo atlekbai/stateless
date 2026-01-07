@@ -238,14 +238,14 @@ func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, trig
 		if source == behaviour.Destination {
 			return nil
 		}
-		return sm.executeTransition(source, behaviour.Destination, trigger, args, representation)
+		return sm.executeTransition(ctx, source, behaviour.Destination, trigger, args, representation)
 
 	case *ReentryTriggerBehaviour[TState, TTrigger]:
-		return sm.executeTransition(source, behaviour.Destination, trigger, args, representation)
+		return sm.executeTransition(ctx, source, behaviour.Destination, trigger, args, representation)
 
 	case *DynamicTriggerBehaviour[TState, TTrigger]:
 		destination := behaviour.GetDestinationState(args)
-		return sm.executeTransition(source, destination, trigger, args, representation)
+		return sm.executeTransition(ctx, source, destination, trigger, args, representation)
 
 	case *IgnoredTriggerBehaviour[TState, TTrigger]:
 		// Trigger is ignored, do nothing
@@ -259,7 +259,7 @@ func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, trig
 			Args:        args,
 		}
 		// Internal transitions don't fire transition events
-		return behaviour.Execute(transition)
+		return behaviour.Execute(ctx, transition)
 
 	default:
 		return &InvalidOperationError{Message: fmt.Sprintf("unknown trigger behaviour type: %T", handler)}
@@ -268,6 +268,7 @@ func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, trig
 
 // executeTransition handles the common transition logic for all transition types.
 func (sm *StateMachine[TState, TTrigger]) executeTransition(
+	ctx context.Context,
 	source TState,
 	destination TState,
 	trigger TTrigger,
@@ -282,7 +283,7 @@ func (sm *StateMachine[TState, TTrigger]) executeTransition(
 	}
 
 	// Execute exit actions
-	if err := sourceRepresentation.Exit(transition); err != nil {
+	if err := sourceRepresentation.Exit(ctx, transition); err != nil {
 		return err
 	}
 
@@ -294,14 +295,14 @@ func (sm *StateMachine[TState, TTrigger]) executeTransition(
 
 	// Execute entry actions
 	destRepresentation := sm.getRepresentation(destination)
-	if err := destRepresentation.Enter(transition); err != nil {
+	if err := destRepresentation.Enter(ctx, transition); err != nil {
 		return err
 	}
 
 	// Handle initial transition if destination has one (recursively for nested substates)
 	// Only if state hasn't changed during entry actions (in immediate mode, nested fires can change state)
 	if sm.State() == destination {
-		if err := sm.handleInitialTransitions(destination, trigger, args); err != nil {
+		if err := sm.handleInitialTransitions(ctx, destination, trigger, args); err != nil {
 			return err
 		}
 	}
@@ -319,7 +320,7 @@ func (sm *StateMachine[TState, TTrigger]) executeTransition(
 }
 
 // handleInitialTransitions handles initial transitions recursively for nested substates.
-func (sm *StateMachine[TState, TTrigger]) handleInitialTransitions(destination TState, trigger TTrigger, args any) error {
+func (sm *StateMachine[TState, TTrigger]) handleInitialTransitions(ctx context.Context, destination TState, trigger TTrigger, args any) error {
 	currentState := destination
 	for {
 		currentRepresentation := sm.getRepresentation(currentState)
@@ -350,7 +351,7 @@ func (sm *StateMachine[TState, TTrigger]) handleInitialTransitions(destination T
 		sm.stateMutator(initialTarget)
 
 		// Execute entry actions for initial target
-		if err := initialTargetRepresentation.ExecuteEntryActions(initialTransition); err != nil {
+		if err := initialTargetRepresentation.ExecuteEntryActions(ctx, initialTransition); err != nil {
 			return err
 		}
 
@@ -435,13 +436,13 @@ func (sm *StateMachine[TState, TTrigger]) UnregisterAllCallbacks() {
 }
 
 // Activate activates the state machine.
-func (sm *StateMachine[TState, TTrigger]) Activate() error {
+func (sm *StateMachine[TState, TTrigger]) Activate(ctx context.Context) error {
 	if sm.isActive {
 		return nil
 	}
 
 	currentRepresentation := sm.getRepresentation(sm.State())
-	if err := currentRepresentation.Activate(); err != nil {
+	if err := currentRepresentation.Activate(ctx); err != nil {
 		return err
 	}
 
@@ -450,13 +451,13 @@ func (sm *StateMachine[TState, TTrigger]) Activate() error {
 }
 
 // Deactivate deactivates the state machine.
-func (sm *StateMachine[TState, TTrigger]) Deactivate() error {
+func (sm *StateMachine[TState, TTrigger]) Deactivate(ctx context.Context) error {
 	if !sm.isActive {
 		return nil
 	}
 
 	currentRepresentation := sm.getRepresentation(sm.State())
-	if err := currentRepresentation.Deactivate(); err != nil {
+	if err := currentRepresentation.Deactivate(ctx); err != nil {
 		return err
 	}
 
