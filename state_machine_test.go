@@ -66,7 +66,7 @@ func TestSimpleTransition(t *testing.T) {
 	sm := NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).Permit(TriggerX, StateB)
 
-	if err := sm.Fire(TriggerX); err != nil {
+	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
@@ -82,7 +82,7 @@ func TestMultipleTransitions(t *testing.T) {
 	sm.Configure(StateC).Permit(TriggerZ, StateA)
 
 	// A -> B
-	if err := sm.Fire(TriggerX); err != nil {
+	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	if sm.State() != StateB {
@@ -90,7 +90,7 @@ func TestMultipleTransitions(t *testing.T) {
 	}
 
 	// B -> C
-	if err := sm.Fire(TriggerY); err != nil {
+	if err := sm.Fire(TriggerY, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	if sm.State() != StateC {
@@ -98,7 +98,7 @@ func TestMultipleTransitions(t *testing.T) {
 	}
 
 	// C -> A
-	if err := sm.Fire(TriggerZ); err != nil {
+	if err := sm.Fire(TriggerZ, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	if sm.State() != StateA {
@@ -111,7 +111,7 @@ func TestInvalidTransition(t *testing.T) {
 	sm.Configure(StateA).Permit(TriggerX, StateB)
 
 	// TriggerY is not configured for StateA
-	err := sm.Fire(TriggerY)
+	err := sm.Fire(TriggerY, nil)
 	if err == nil {
 		t.Error("expected error for invalid transition")
 	}
@@ -132,7 +132,7 @@ func TestPermitIf_GuardPasses(t *testing.T) {
 		return true
 	})
 
-	if err := sm.Fire(TriggerX); err != nil {
+	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
@@ -150,7 +150,7 @@ func TestPermitIf_GuardFails(t *testing.T) {
 		return false
 	}, "test guard")
 
-	err := sm.Fire(TriggerX)
+	err := sm.Fire(TriggerX, nil)
 	if err == nil {
 		t.Error("expected error when guard fails")
 	}
@@ -169,7 +169,7 @@ func TestMultipleGuards(t *testing.T) {
 		PermitIf(TriggerX, StateB, func() bool { return true }, "guard1").
 		PermitIf(TriggerX, StateC, func() bool { return false }, "guard2")
 
-	if err := sm.Fire(TriggerX); err != nil {
+	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
@@ -184,11 +184,11 @@ func TestOnEntry(t *testing.T) {
 	entryCount := 0
 	sm := NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).Permit(TriggerX, StateB)
-	sm.Configure(StateB).OnEntry(func() {
+	sm.Configure(StateB).OnEntryAction(func() {
 		entryCount++
 	})
 
-	if err := sm.Fire(TriggerX); err != nil {
+	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
@@ -202,11 +202,11 @@ func TestOnExit(t *testing.T) {
 	sm := NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).
 		Permit(TriggerX, StateB).
-		OnExit(func() {
+		OnExitAction(func() {
 			exitCount++
 		})
 
-	if err := sm.Fire(TriggerX); err != nil {
+	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
@@ -216,14 +216,16 @@ func TestOnExit(t *testing.T) {
 }
 
 func TestOnEntryWithTransition(t *testing.T) {
-	var receivedTransition Transition[State, Trigger]
+	var receivedTransition Transition[State, Trigger, NoArgs]
 	sm := NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).Permit(TriggerX, StateB)
-	sm.Configure(StateB).OnEntryWithTransition(func(transition Transition[State, Trigger]) {
+
+	configB := sm.Configure(StateB)
+	OnEntry[State, Trigger, NoArgs](configB, func(transition Transition[State, Trigger, NoArgs]) {
 		receivedTransition = transition
 	})
 
-	if err := sm.Fire(TriggerX); err != nil {
+	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
@@ -244,14 +246,16 @@ func TestOnEntryFrom(t *testing.T) {
 
 	sm := NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).Permit(TriggerX, StateB)
-	sm.Configure(StateB).
-		Permit(TriggerY, StateC).
-		OnEntryFrom(TriggerX, func() { entryFromXCount++ }).
-		OnEntryFrom(TriggerY, func() { entryFromYCount++ })
+
+	configB := sm.Configure(StateB).
+		Permit(TriggerY, StateC)
+	OnEntryFrom[State, Trigger, NoArgs](configB, TriggerX, func(t Transition[State, Trigger, NoArgs]) { entryFromXCount++ })
+	OnEntryFrom[State, Trigger, NoArgs](configB, TriggerY, func(t Transition[State, Trigger, NoArgs]) { entryFromYCount++ })
+
 	sm.Configure(StateC).Permit(TriggerY, StateB)
 
 	// Fire TriggerX: A -> B
-	if err := sm.Fire(TriggerX); err != nil {
+	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	if entryFromXCount != 1 {
@@ -262,12 +266,12 @@ func TestOnEntryFrom(t *testing.T) {
 	}
 
 	// Fire TriggerY: B -> C
-	if err := sm.Fire(TriggerY); err != nil {
+	if err := sm.Fire(TriggerY, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
 	// Fire TriggerY: C -> B (should trigger OnEntryFrom(TriggerY))
-	if err := sm.Fire(TriggerY); err != nil {
+	if err := sm.Fire(TriggerY, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	if entryFromYCount != 1 {
@@ -284,10 +288,10 @@ func TestPermitReentry(t *testing.T) {
 	sm := NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).
 		PermitReentry(TriggerX).
-		OnEntry(func() { entryCount++ }).
-		OnExit(func() { exitCount++ })
+		OnEntryAction(func() { entryCount++ }).
+		OnExitAction(func() { exitCount++ })
 
-	if err := sm.Fire(TriggerX); err != nil {
+	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
@@ -310,7 +314,7 @@ func TestIgnore(t *testing.T) {
 		Permit(TriggerX, StateB).
 		Ignore(TriggerY)
 
-	if err := sm.Fire(TriggerY); err != nil {
+	if err := sm.Fire(TriggerY, nil); err != nil {
 		t.Errorf("unexpected error when firing ignored trigger: %v", err)
 	}
 
@@ -326,7 +330,7 @@ func TestIgnoreIf(t *testing.T) {
 		IgnoreIf(TriggerX, func() bool { return shouldIgnore })
 
 	// Should be ignored
-	if err := sm.Fire(TriggerX); err != nil {
+	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Errorf("unexpected error when trigger should be ignored: %v", err)
 	}
 	if sm.State() != StateA {
@@ -335,7 +339,7 @@ func TestIgnoreIf(t *testing.T) {
 
 	// Now it shouldn't be ignored (but no transition defined)
 	shouldIgnore = false
-	err := sm.Fire(TriggerX)
+	err := sm.Fire(TriggerX, nil)
 	if err == nil {
 		t.Error("expected error when trigger is not ignored and no transition defined")
 	}
@@ -350,13 +354,13 @@ func TestInternalTransition(t *testing.T) {
 
 	sm := NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).
-		InternalTransition(TriggerX, func(transition Transition[State, Trigger], args ...any) {
+		InternalTransition(TriggerX, func(transition internalTransition[State, Trigger]) {
 			actionCount++
 		}).
-		OnEntry(func() { entryCount++ }).
-		OnExit(func() { exitCount++ })
+		OnEntryAction(func() { entryCount++ }).
+		OnExitAction(func() { exitCount++ })
 
-	if err := sm.Fire(TriggerX); err != nil {
+	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
@@ -383,7 +387,7 @@ func TestPermitDynamic(t *testing.T) {
 		return destState
 	})
 
-	if err := sm.Fire(TriggerX); err != nil {
+	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	if sm.State() != StateB {
@@ -397,7 +401,7 @@ func TestPermitDynamic(t *testing.T) {
 		return destState
 	})
 
-	if err := sm.Fire(TriggerX); err != nil {
+	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	if sm.State() != StateC {
@@ -407,11 +411,9 @@ func TestPermitDynamic(t *testing.T) {
 
 func TestPermitDynamicWithArgs(t *testing.T) {
 	sm := NewStateMachine[State, Trigger](StateA)
-	sm.Configure(StateA).PermitDynamicWithArgs(TriggerX, func(args ...any) State {
-		if len(args) > 0 {
-			if state, ok := args[0].(State); ok {
-				return state
-			}
+	sm.Configure(StateA).PermitDynamicArgs(TriggerX, func(args any) State {
+		if state, ok := args.(State); ok {
+			return state
 		}
 		return StateB
 	})
@@ -435,7 +437,7 @@ func TestSubstateOf(t *testing.T) {
 	sm.Configure(StateA).Permit(TriggerY, StateC)
 
 	// Go to StateC
-	if err := sm.Fire(TriggerY); err != nil {
+	if err := sm.Fire(TriggerY, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	if sm.State() != StateC {
@@ -443,11 +445,11 @@ func TestSubstateOf(t *testing.T) {
 	}
 
 	// StateC should inherit TriggerX from StateB
-	if !sm.CanFire(TriggerX) {
+	if !sm.CanFire(TriggerX, nil) {
 		t.Error("expected TriggerX to be firable from StateC (inherited from StateB)")
 	}
 
-	if err := sm.Fire(TriggerX); err != nil {
+	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	if sm.State() != StateA {
@@ -508,19 +510,19 @@ func TestActivateDeactivate(t *testing.T) {
 // Event tests
 
 func TestOnTransitioned(t *testing.T) {
-	var transitions []Transition[State, Trigger]
+	var transitions []Transition[State, Trigger, NoArgs]
 	sm := NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).Permit(TriggerX, StateB)
 	sm.Configure(StateB).Permit(TriggerY, StateC)
 
-	sm.OnTransitioned(func(transition Transition[State, Trigger]) {
+	OnTransitioned[State, Trigger, NoArgs](sm, func(transition Transition[State, Trigger, NoArgs]) {
 		transitions = append(transitions, transition)
 	})
 
-	if err := sm.Fire(TriggerX); err != nil {
+	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if err := sm.Fire(TriggerY); err != nil {
+	if err := sm.Fire(TriggerY, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
@@ -534,11 +536,11 @@ func TestOnTransitionCompleted(t *testing.T) {
 	sm := NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).Permit(TriggerX, StateB)
 
-	sm.OnTransitionCompleted(func(transition Transition[State, Trigger]) {
+	OnTransitionCompleted[State, Trigger, NoArgs](sm, func(transition Transition[State, Trigger, NoArgs]) {
 		completedCount++
 	})
 
-	if err := sm.Fire(TriggerX); err != nil {
+	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
@@ -555,15 +557,15 @@ func TestUnregisterAllCallbacks(t *testing.T) {
 	sm.Configure(StateA).Permit(TriggerX, StateB)
 	sm.Configure(StateB).Permit(TriggerY, StateA)
 
-	sm.OnTransitioned(func(transition Transition[State, Trigger]) {
+	OnTransitioned[State, Trigger, NoArgs](sm, func(transition Transition[State, Trigger, NoArgs]) {
 		transitionCount++
 	})
-	sm.OnTransitionCompleted(func(transition Transition[State, Trigger]) {
+	OnTransitionCompleted[State, Trigger, NoArgs](sm, func(transition Transition[State, Trigger, NoArgs]) {
 		completedCount++
 	})
 
 	// Fire once - callbacks should be called
-	if err := sm.Fire(TriggerX); err != nil {
+	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	if transitionCount != 1 {
@@ -577,7 +579,7 @@ func TestUnregisterAllCallbacks(t *testing.T) {
 	sm.UnregisterAllCallbacks()
 
 	// Fire again - callbacks should NOT be called
-	if err := sm.Fire(TriggerY); err != nil {
+	if err := sm.Fire(TriggerY, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	if transitionCount != 1 {
@@ -599,7 +601,7 @@ func TestExternalStorage(t *testing.T) {
 	)
 	sm.Configure(StateA).Permit(TriggerX, StateB)
 
-	if err := sm.Fire(TriggerX); err != nil {
+	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
@@ -626,7 +628,7 @@ func TestOnUnhandledTrigger(t *testing.T) {
 	})
 
 	// Fire an unconfigured trigger
-	if err := sm.Fire(TriggerX); err != nil {
+	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Errorf("unexpected error when OnUnhandledTrigger is set: %v", err)
 	}
 
@@ -649,13 +651,13 @@ func TestCanFire(t *testing.T) {
 		Permit(TriggerX, StateB).
 		Ignore(TriggerY)
 
-	if !sm.CanFire(TriggerX) {
+	if !sm.CanFire(TriggerX, nil) {
 		t.Error("expected CanFire(TriggerX) to be true")
 	}
-	if !sm.CanFire(TriggerY) {
+	if !sm.CanFire(TriggerY, nil) {
 		t.Error("expected CanFire(TriggerY) to be true (ignored triggers can be fired)")
 	}
-	if sm.CanFire(TriggerZ) {
+	if sm.CanFire(TriggerZ, nil) {
 		t.Error("expected CanFire(TriggerZ) to be false")
 	}
 }
@@ -665,12 +667,12 @@ func TestCanFire_WithGuard(t *testing.T) {
 	sm := NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).PermitIf(TriggerX, StateB, func() bool { return guardResult })
 
-	if !sm.CanFire(TriggerX) {
+	if !sm.CanFire(TriggerX, nil) {
 		t.Error("expected CanFire(TriggerX) to be true when guard passes")
 	}
 
 	guardResult = false
-	if sm.CanFire(TriggerX) {
+	if sm.CanFire(TriggerX, nil) {
 		t.Error("expected CanFire(TriggerX) to be false when guard fails")
 	}
 }
@@ -683,7 +685,7 @@ func TestGetPermittedTriggers(t *testing.T) {
 		Permit(TriggerX, StateB).
 		Permit(TriggerY, StateC)
 
-	triggers := sm.GetPermittedTriggers()
+	triggers := sm.GetPermittedTriggers(nil)
 
 	if len(triggers) != 2 {
 		t.Errorf("expected 2 permitted triggers, got %d", len(triggers))
@@ -712,24 +714,24 @@ func TestGetPermittedTriggers(t *testing.T) {
 
 func TestFiringModeQueued(t *testing.T) {
 	sm := NewStateMachineWithMode[State, Trigger](StateA, FiringQueued)
-	transitions := make([]Transition[State, Trigger], 0)
+	transitions := make([]Transition[State, Trigger, NoArgs], 0)
 
 	sm.Configure(StateA).
 		Permit(TriggerX, StateB).
-		OnExit(func() {
+		OnExitAction(func() {
 			// Fire another trigger from within an exit action
 			go func() {
-				sm.Fire(TriggerY)
+				sm.Fire(TriggerY, nil)
 			}()
 		})
 	sm.Configure(StateB).
 		Permit(TriggerY, StateC)
 
-	sm.OnTransitioned(func(transition Transition[State, Trigger]) {
+	OnTransitioned[State, Trigger, NoArgs](sm, func(transition Transition[State, Trigger, NoArgs]) {
 		transitions = append(transitions, transition)
 	})
 
-	if err := sm.Fire(TriggerX); err != nil {
+	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
@@ -750,7 +752,7 @@ func TestFireCtx_Cancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
-	err := sm.FireCtx(ctx, TriggerX)
+	err := sm.FireCtx(ctx, TriggerX, nil)
 	if err == nil {
 		t.Error("expected error when context is cancelled")
 	}
@@ -775,8 +777,8 @@ func TestConcurrentFire(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			sm.Fire(TriggerX)
-			sm.Fire(TriggerY)
+			sm.Fire(TriggerX, nil)
+			sm.Fire(TriggerY, nil)
 		}()
 	}
 	wg.Wait()
@@ -790,7 +792,7 @@ func TestGetInfo(t *testing.T) {
 	sm := NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).
 		Permit(TriggerX, StateB).
-		OnEntry(func() {})
+		OnEntryAction(func() {})
 	sm.Configure(StateB).
 		Permit(TriggerY, StateA)
 
@@ -820,112 +822,99 @@ func TestStateMachine_String(t *testing.T) {
 // Transition tests
 
 func TestTransition_IsReentry(t *testing.T) {
-	trans := NewTransition[State, Trigger](StateA, StateA, TriggerX)
+	trans := Transition[State, Trigger, NoArgs]{Source: StateA, Destination: StateA, Trigger: TriggerX}
 	if !trans.IsReentry() {
 		t.Error("expected IsReentry to be true for same source and destination")
 	}
 
-	trans2 := NewTransition[State, Trigger](StateA, StateB, TriggerX)
+	trans2 := Transition[State, Trigger, NoArgs]{Source: StateA, Destination: StateB, Trigger: TriggerX}
 	if trans2.IsReentry() {
 		t.Error("expected IsReentry to be false for different source and destination")
 	}
 }
 
 func TestInitialTransition(t *testing.T) {
-	trans := NewInitialTransition[State, Trigger](StateA, StateB, TriggerX)
+	trans := Transition[State, Trigger, NoArgs]{
+		Source:      StateA,
+		Destination: StateB,
+		Trigger:     TriggerX,
+		isInitial:   true,
+	}
 	if !trans.IsInitial() {
 		t.Error("expected IsInitial to be true for initial transition")
 	}
 }
 
-// Typed OnEntryFrom tests using Handler pattern
+// Typed OnEntry tests using generic function
 
-func TestOnEntryFromParam_TypedArgument(t *testing.T) {
-	var receivedArg string
+type AssignArgs struct {
+	Assignee string
+}
+
+func TestOnEntry_TypedArgument(t *testing.T) {
+	var receivedArgs AssignArgs
 	sm := NewStateMachine[State, Trigger](StateA)
 
-	// Create a typed trigger with one string argument
-	assignTrigger := NewTriggerWithParameters1[Trigger, string](TriggerX)
-
-	// Configure state with typed entry action using Handler
-	sm.Configure(StateB).OnEntryFromParam(
-		assignTrigger.TriggerWithParameters,
-		assignTrigger.Handler(func(arg string) {
-			receivedArg = arg
-		}),
-	)
 	sm.Configure(StateA).Permit(TriggerX, StateB)
+
+	// Configure state with typed entry action using generic OnEntry
+	configB := sm.Configure(StateB)
+	OnEntry[State, Trigger, AssignArgs](configB, func(trans Transition[State, Trigger, AssignArgs]) {
+		receivedArgs = trans.Args
+	})
 
 	// Fire with typed argument
-	err := sm.Fire(TriggerX, "hello")
+	err := sm.Fire(TriggerX, AssignArgs{Assignee: "Alice"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if receivedArg != "hello" {
-		t.Errorf("expected 'hello', got '%s'", receivedArg)
+	if receivedArgs.Assignee != "Alice" {
+		t.Errorf("expected 'Alice', got '%s'", receivedArgs.Assignee)
 	}
 }
 
-func TestOnEntryFromParam_TwoTypedArguments(t *testing.T) {
-	var receivedArg0 string
-	var receivedArg1 int
+func TestOnEntryFrom_TypedArgument(t *testing.T) {
+	var receivedArgs AssignArgs
 	sm := NewStateMachine[State, Trigger](StateA)
 
-	assignTrigger := NewTriggerWithParameters2[Trigger, string, int](TriggerX)
-
-	sm.Configure(StateB).OnEntryFromParam(
-		assignTrigger.TriggerWithParameters,
-		assignTrigger.Handler(func(arg0 string, arg1 int) {
-			receivedArg0 = arg0
-			receivedArg1 = arg1
-		}),
-	)
 	sm.Configure(StateA).Permit(TriggerX, StateB)
 
-	err := sm.Fire(TriggerX, "test", 42)
+	// Configure state with typed entry action from specific trigger
+	configB := sm.Configure(StateB)
+	OnEntryFrom[State, Trigger, AssignArgs](configB, TriggerX, func(trans Transition[State, Trigger, AssignArgs]) {
+		receivedArgs = trans.Args
+	})
+
+	// Fire with typed argument
+	err := sm.Fire(TriggerX, AssignArgs{Assignee: "Bob"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if receivedArg0 != "test" {
-		t.Errorf("expected 'test', got '%s'", receivedArg0)
-	}
-	if receivedArg1 != 42 {
-		t.Errorf("expected 42, got %d", receivedArg1)
+	if receivedArgs.Assignee != "Bob" {
+		t.Errorf("expected 'Bob', got '%s'", receivedArgs.Assignee)
 	}
 }
 
-func TestOnEntryFromParam_ThreeTypedArguments(t *testing.T) {
-	var receivedArg0 string
-	var receivedArg1 int
-	var receivedArg2 bool
+func TestOnExit_TypedArgument(t *testing.T) {
+	var receivedArgs AssignArgs
 	sm := NewStateMachine[State, Trigger](StateA)
 
-	assignTrigger := NewTriggerWithParameters3[Trigger, string, int, bool](TriggerX)
+	configA := sm.Configure(StateA).Permit(TriggerX, StateB)
+	OnExit[State, Trigger, AssignArgs](configA, func(trans Transition[State, Trigger, AssignArgs]) {
+		receivedArgs = trans.Args
+	})
 
-	sm.Configure(StateB).OnEntryFromParam(
-		assignTrigger.TriggerWithParameters,
-		assignTrigger.Handler(func(arg0 string, arg1 int, arg2 bool) {
-			receivedArg0 = arg0
-			receivedArg1 = arg1
-			receivedArg2 = arg2
-		}),
-	)
-	sm.Configure(StateA).Permit(TriggerX, StateB)
+	sm.Configure(StateB)
 
-	err := sm.Fire(TriggerX, "foo", 123, true)
+	// Fire with typed argument
+	err := sm.Fire(TriggerX, AssignArgs{Assignee: "Charlie"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if receivedArg0 != "foo" {
-		t.Errorf("expected 'foo', got '%s'", receivedArg0)
-	}
-	if receivedArg1 != 123 {
-		t.Errorf("expected 123, got %d", receivedArg1)
-	}
-	if receivedArg2 != true {
-		t.Errorf("expected true, got %v", receivedArg2)
+	if receivedArgs.Assignee != "Charlie" {
+		t.Errorf("expected 'Charlie', got '%s'", receivedArgs.Assignee)
 	}
 }

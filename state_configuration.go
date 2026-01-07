@@ -6,9 +6,9 @@ import (
 
 // StateConfiguration provides a fluent interface for configuring state behaviour.
 type StateConfiguration[TState, TTrigger comparable] struct {
-	representation         *StateRepresentation[TState, TTrigger]
-	lookup                 func(TState) *StateRepresentation[TState, TTrigger]
-	triggerConfigurations  map[TTrigger]*TriggerWithParameters[TTrigger]
+	representation        *StateRepresentation[TState, TTrigger]
+	lookup                func(TState) *StateRepresentation[TState, TTrigger]
+	triggerConfigurations map[TTrigger]*TriggerWithParameters[TTrigger]
 }
 
 // NewStateConfiguration creates a new state configuration.
@@ -53,9 +53,9 @@ func (sc *StateConfiguration[TState, TTrigger]) PermitIf(trigger TTrigger, desti
 	return sc
 }
 
-// PermitIfWithArgs configures the state to transition to the specified destination state
-// when the specified trigger is fired, if the guard condition (which receives arguments) is met.
-func (sc *StateConfiguration[TState, TTrigger]) PermitIfWithArgs(trigger TTrigger, destinationState TState, guard func(args ...any) bool, guardDescription ...string) *StateConfiguration[TState, TTrigger] {
+// PermitIfArgs configures the state to transition to the specified destination state
+// when the specified trigger is fired, if the guard condition (which receives args) is met.
+func (sc *StateConfiguration[TState, TTrigger]) PermitIfArgs(trigger TTrigger, destinationState TState, guard func(args any) bool, guardDescription ...string) *StateConfiguration[TState, TTrigger] {
 	sc.enforceNotIdentityTransition(destinationState)
 	desc := ""
 	if len(guardDescription) > 0 {
@@ -89,19 +89,6 @@ func (sc *StateConfiguration[TState, TTrigger]) PermitReentryIf(trigger TTrigger
 	return sc
 }
 
-// PermitReentryIfWithArgs configures the state to re-enter itself when the specified trigger is fired,
-// if the guard condition (which receives arguments) is met. Entry and exit actions will be executed.
-func (sc *StateConfiguration[TState, TTrigger]) PermitReentryIfWithArgs(trigger TTrigger, guard func(args ...any) bool, guardDescription ...string) *StateConfiguration[TState, TTrigger] {
-	desc := ""
-	if len(guardDescription) > 0 {
-		desc = guardDescription[0]
-	}
-	sc.representation.AddTriggerBehaviour(
-		NewReentryTriggerBehaviour(trigger, sc.representation.UnderlyingState(), NewTransitionGuardWithArgs(guard, desc)),
-	)
-	return sc
-}
-
 // Ignore configures the state to ignore the specified trigger.
 func (sc *StateConfiguration[TState, TTrigger]) Ignore(trigger TTrigger) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddTriggerBehaviour(
@@ -122,19 +109,6 @@ func (sc *StateConfiguration[TState, TTrigger]) IgnoreIf(trigger TTrigger, guard
 	return sc
 }
 
-// IgnoreIfWithArgs configures the state to ignore the specified trigger if the guard condition
-// (which receives arguments) is met.
-func (sc *StateConfiguration[TState, TTrigger]) IgnoreIfWithArgs(trigger TTrigger, guard func(args ...any) bool, guardDescription ...string) *StateConfiguration[TState, TTrigger] {
-	desc := ""
-	if len(guardDescription) > 0 {
-		desc = guardDescription[0]
-	}
-	sc.representation.AddTriggerBehaviour(
-		NewIgnoredTriggerBehaviour[TState](trigger, NewTransitionGuardWithArgs(guard, desc)),
-	)
-	return sc
-}
-
 // PermitDynamic configures the state to transition to a dynamically determined destination state
 // when the specified trigger is fired.
 func (sc *StateConfiguration[TState, TTrigger]) PermitDynamic(
@@ -151,16 +125,16 @@ func (sc *StateConfiguration[TState, TTrigger]) PermitDynamic(
 		PossibleDestinationStates:           possibleDestinations,
 	}
 	sc.representation.AddTriggerBehaviour(
-		NewDynamicTriggerBehaviour(trigger, func(args ...any) TState { return destinationSelector() }, EmptyTransitionGuard, info),
+		NewDynamicTriggerBehaviour(trigger, func(args any) TState { return destinationSelector() }, EmptyTransitionGuard, info),
 	)
 	return sc
 }
 
-// PermitDynamicWithArgs configures the state to transition to a dynamically determined destination state
+// PermitDynamicArgs configures the state to transition to a dynamically determined destination state
 // when the specified trigger is fired, using the trigger arguments.
-func (sc *StateConfiguration[TState, TTrigger]) PermitDynamicWithArgs(
+func (sc *StateConfiguration[TState, TTrigger]) PermitDynamicArgs(
 	trigger TTrigger,
-	destinationSelector func(args ...any) TState,
+	destinationSelector func(args any) TState,
 	possibleDestinations ...DynamicStateInfo,
 ) *StateConfiguration[TState, TTrigger] {
 	info := DynamicTransitionInfo{
@@ -197,32 +171,7 @@ func (sc *StateConfiguration[TState, TTrigger]) PermitDynamicIf(
 		DestinationStateSelectorDescription: CreateInvocationInfo(destinationSelector, "", TimingSynchronous),
 	}
 	sc.representation.AddTriggerBehaviour(
-		NewDynamicTriggerBehaviour(trigger, func(args ...any) TState { return destinationSelector() }, NewTransitionGuard(guard, desc), info),
-	)
-	return sc
-}
-
-// PermitDynamicIfWithArgs configures the state to transition to a dynamically determined destination state
-// when the specified trigger is fired, if the guard condition (which receives arguments) is met.
-func (sc *StateConfiguration[TState, TTrigger]) PermitDynamicIfWithArgs(
-	trigger TTrigger,
-	destinationSelector func(args ...any) TState,
-	guard func(args ...any) bool,
-	guardDescription ...string,
-) *StateConfiguration[TState, TTrigger] {
-	desc := ""
-	if len(guardDescription) > 0 {
-		desc = guardDescription[0]
-	}
-	info := DynamicTransitionInfo{
-		transitionInfoBase: transitionInfoBase{
-			Trigger:         NewTriggerInfo(trigger),
-			GuardConditions: []InvocationInfo{CreateInvocationInfo(guard, desc, TimingSynchronous)},
-		},
-		DestinationStateSelectorDescription: CreateInvocationInfo(destinationSelector, "", TimingSynchronous),
-	}
-	sc.representation.AddTriggerBehaviour(
-		NewDynamicTriggerBehaviour(trigger, destinationSelector, NewTransitionGuardWithArgs(guard, desc), info),
+		NewDynamicTriggerBehaviour(trigger, func(args any) TState { return destinationSelector() }, NewTransitionGuard(guard, desc), info),
 	)
 	return sc
 }
@@ -231,7 +180,7 @@ func (sc *StateConfiguration[TState, TTrigger]) PermitDynamicIfWithArgs(
 // and re-entered, and entry/exit actions are not executed.
 func (sc *StateConfiguration[TState, TTrigger]) InternalTransition(
 	trigger TTrigger,
-	action func(transition Transition[TState, TTrigger], args ...any),
+	action func(transition internalTransition[TState, TTrigger]),
 ) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddTriggerBehaviour(
 		NewSyncInternalTriggerBehaviour(trigger, nil, action, ""),
@@ -243,8 +192,8 @@ func (sc *StateConfiguration[TState, TTrigger]) InternalTransition(
 // and re-entered, if the guard condition is met.
 func (sc *StateConfiguration[TState, TTrigger]) InternalTransitionIf(
 	trigger TTrigger,
-	guard func(args ...any) bool,
-	action func(transition Transition[TState, TTrigger], args ...any),
+	guard func(args any) bool,
+	action func(transition internalTransition[TState, TTrigger]),
 	guardDescription ...string,
 ) *StateConfiguration[TState, TTrigger] {
 	desc := ""
@@ -257,111 +206,26 @@ func (sc *StateConfiguration[TState, TTrigger]) InternalTransitionIf(
 	return sc
 }
 
-// OnEntry configures an action to be executed when entering this state.
-func (sc *StateConfiguration[TState, TTrigger]) OnEntry(action func()) *StateConfiguration[TState, TTrigger] {
+// OnEntryAction configures an action to be executed when entering this state.
+// For simple actions that don't need transition info, use this method.
+func (sc *StateConfiguration[TState, TTrigger]) OnEntryAction(action func()) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddEntryAction(
 		NewSyncEntryActionBehaviour[TState, TTrigger](
-			func(transition Transition[TState, TTrigger], args ...any) { action() },
+			func(transition internalTransition[TState, TTrigger]) { action() },
 			CreateInvocationInfo(action, "", TimingSynchronous),
 		),
 	)
 	return sc
 }
 
-// OnEntryWithTransition configures an action to be executed when entering this state,
-// receiving the transition that caused the entry.
-func (sc *StateConfiguration[TState, TTrigger]) OnEntryWithTransition(action func(transition Transition[TState, TTrigger])) *StateConfiguration[TState, TTrigger] {
-	sc.representation.AddEntryAction(
-		NewSyncEntryActionBehaviour[TState, TTrigger](
-			func(transition Transition[TState, TTrigger], args ...any) { action(transition) },
-			CreateInvocationInfo(action, "", TimingSynchronous),
-		),
-	)
-	return sc
-}
-
-// OnEntryWithArgs configures an action to be executed when entering this state,
-// receiving the trigger arguments.
-func (sc *StateConfiguration[TState, TTrigger]) OnEntryWithArgs(action func(transition Transition[TState, TTrigger], args ...any)) *StateConfiguration[TState, TTrigger] {
-	sc.representation.AddEntryAction(
-		NewSyncEntryActionBehaviour[TState, TTrigger](action, CreateInvocationInfo(action, "", TimingSynchronous)),
-	)
-	return sc
-}
-
-// OnEntryFrom configures an action to be executed when entering this state from a specific trigger.
-func (sc *StateConfiguration[TState, TTrigger]) OnEntryFrom(trigger TTrigger, action func()) *StateConfiguration[TState, TTrigger] {
-	sc.representation.AddEntryAction(
-		NewSyncEntryActionBehaviourFrom(
-			trigger,
-			func(transition Transition[TState, TTrigger], args ...any) { action() },
-			CreateInvocationInfo(action, "", TimingSynchronous),
-		),
-	)
-	return sc
-}
-
-// OnEntryFromWithTransition configures an action to be executed when entering this state
-// from a specific trigger, receiving the transition.
-func (sc *StateConfiguration[TState, TTrigger]) OnEntryFromWithTransition(trigger TTrigger, action func(transition Transition[TState, TTrigger])) *StateConfiguration[TState, TTrigger] {
-	sc.representation.AddEntryAction(
-		NewSyncEntryActionBehaviourFrom(
-			trigger,
-			func(transition Transition[TState, TTrigger], args ...any) { action(transition) },
-			CreateInvocationInfo(action, "", TimingSynchronous),
-		),
-	)
-	return sc
-}
-
-// OnEntryFromWithArgs configures an action to be executed when entering this state
-// from a specific trigger, receiving the trigger arguments.
-func (sc *StateConfiguration[TState, TTrigger]) OnEntryFromWithArgs(trigger TTrigger, action func(transition Transition[TState, TTrigger], args ...any)) *StateConfiguration[TState, TTrigger] {
-	sc.representation.AddEntryAction(
-		NewSyncEntryActionBehaviourFrom(trigger, action, CreateInvocationInfo(action, "", TimingSynchronous)),
-	)
-	return sc
-}
-
-// OnEntryFromParam configures an action to be executed when entering this state
-// from a parameterized trigger. Use with TriggerWithParameters.Handler() for type-safe argument unpacking.
-//
-// Example:
-//
-//	assignTrigger := NewTriggerWithParameters1[Trigger, string](TriggerAssign)
-//	sm.Configure(StateB).OnEntryFromParam(
-//	    assignTrigger.TriggerWithParameters,
-//	    assignTrigger.Handler(func(assignee string) {
-//	        fmt.Printf("Assigned to %s\n", assignee)
-//	    }),
-//	)
-func (sc *StateConfiguration[TState, TTrigger]) OnEntryFromParam(trigger *TriggerWithParameters[TTrigger], action func(args ...any)) *StateConfiguration[TState, TTrigger] {
-	sc.representation.AddEntryAction(
-		NewSyncEntryActionBehaviourFrom(
-			trigger.Trigger(),
-			func(_ Transition[TState, TTrigger], args ...any) { action(args...) },
-			CreateInvocationInfo(action, "", TimingSynchronous),
-		),
-	)
-	return sc
-}
-
-// OnExit configures an action to be executed when exiting this state.
-func (sc *StateConfiguration[TState, TTrigger]) OnExit(action func()) *StateConfiguration[TState, TTrigger] {
+// OnExitAction configures an action to be executed when exiting this state.
+// For simple actions that don't need transition info, use this method.
+func (sc *StateConfiguration[TState, TTrigger]) OnExitAction(action func()) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddExitAction(
 		NewSyncExitActionBehaviour[TState, TTrigger](
-			func(transition Transition[TState, TTrigger]) { action() },
+			func(transition internalTransition[TState, TTrigger]) { action() },
 			CreateInvocationInfo(action, "", TimingSynchronous),
 		),
-	)
-	return sc
-}
-
-// OnExitWithTransition configures an action to be executed when exiting this state,
-// receiving the transition that caused the exit.
-func (sc *StateConfiguration[TState, TTrigger]) OnExitWithTransition(action func(transition Transition[TState, TTrigger])) *StateConfiguration[TState, TTrigger] {
-	sc.representation.AddExitAction(
-		NewSyncExitActionBehaviour[TState, TTrigger](action, CreateInvocationInfo(action, "", TimingSynchronous)),
 	)
 	return sc
 }
@@ -412,4 +276,78 @@ func (sc *StateConfiguration[TState, TTrigger]) enforceNotIdentityTransition(des
 	if sc.representation.UnderlyingState() == destinationState {
 		panic(fmt.Sprintf("permit() requires that the destination state is not equal to the source state. To accept a trigger without changing state, use either Ignore() or PermitReentry()"))
 	}
+}
+
+// OnEntry is a generic function that configures a typed entry action.
+// Use this for type-safe access to transition args.
+//
+// Example:
+//
+//	type AssignArgs struct { Assignee string }
+//	OnEntry(sm.Configure(StateB), func(t Transition[State, Trigger, AssignArgs]) {
+//	    fmt.Printf("Assigned to %s\n", t.Args.Assignee)
+//	})
+func OnEntry[TState, TTrigger comparable, TArgs any](
+	sc *StateConfiguration[TState, TTrigger],
+	action func(Transition[TState, TTrigger, TArgs]),
+) *StateConfiguration[TState, TTrigger] {
+	sc.representation.AddEntryAction(
+		NewSyncEntryActionBehaviour[TState, TTrigger](
+			func(transition internalTransition[TState, TTrigger]) {
+				typedTransition := toTypedTransition[TState, TTrigger, TArgs](transition)
+				action(typedTransition)
+			},
+			CreateInvocationInfo(action, "", TimingSynchronous),
+		),
+	)
+	return sc
+}
+
+// OnEntryFrom is a generic function that configures a typed entry action for a specific trigger.
+//
+// Example:
+//
+//	type AssignArgs struct { Assignee string }
+//	OnEntryFrom(sm.Configure(StateB), TriggerAssign, func(t Transition[State, Trigger, AssignArgs]) {
+//	    fmt.Printf("Assigned to %s\n", t.Args.Assignee)
+//	})
+func OnEntryFrom[TState, TTrigger comparable, TArgs any](
+	sc *StateConfiguration[TState, TTrigger],
+	trigger TTrigger,
+	action func(Transition[TState, TTrigger, TArgs]),
+) *StateConfiguration[TState, TTrigger] {
+	sc.representation.AddEntryAction(
+		NewSyncEntryActionBehaviourFrom[TState, TTrigger](
+			trigger,
+			func(transition internalTransition[TState, TTrigger]) {
+				typedTransition := toTypedTransition[TState, TTrigger, TArgs](transition)
+				action(typedTransition)
+			},
+			CreateInvocationInfo(action, "", TimingSynchronous),
+		),
+	)
+	return sc
+}
+
+// OnExit is a generic function that configures a typed exit action.
+//
+// Example:
+//
+//	OnExit(sm.Configure(StateB), func(t Transition[State, Trigger, NoArgs]) {
+//	    fmt.Printf("Exiting from %v\n", t.Source)
+//	})
+func OnExit[TState, TTrigger comparable, TArgs any](
+	sc *StateConfiguration[TState, TTrigger],
+	action func(Transition[TState, TTrigger, TArgs]),
+) *StateConfiguration[TState, TTrigger] {
+	sc.representation.AddExitAction(
+		NewSyncExitActionBehaviour[TState, TTrigger](
+			func(transition internalTransition[TState, TTrigger]) {
+				typedTransition := toTypedTransition[TState, TTrigger, TArgs](transition)
+				action(typedTransition)
+			},
+			CreateInvocationInfo(action, "", TimingSynchronous),
+		),
+	)
+	return sc
 }

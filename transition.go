@@ -1,7 +1,10 @@
 package stateless
 
-// Transition describes a state transition.
-type Transition[TState, TTrigger comparable] struct {
+// NoArgs is used when a transition has no arguments.
+type NoArgs struct{}
+
+// Transition describes a state transition with typed arguments.
+type Transition[TState, TTrigger comparable, TArgs any] struct {
 	// Source is the state transitioned from.
 	Source TState
 
@@ -11,39 +14,64 @@ type Transition[TState, TTrigger comparable] struct {
 	// Trigger is the trigger that caused the transition.
 	Trigger TTrigger
 
-	// Parameters are the optional trigger parameters.
-	Parameters []any
+	// Args contains the typed arguments passed with the trigger.
+	Args TArgs
 
 	// isInitial indicates if this is an initial transition (entering the state machine).
 	isInitial bool
 }
 
-// NewTransition creates a new transition.
-func NewTransition[TState, TTrigger comparable](source, destination TState, trigger TTrigger, parameters ...any) Transition[TState, TTrigger] {
-	if parameters == nil {
-		parameters = []any{}
-	}
-	return Transition[TState, TTrigger]{
+// NewTransition creates a new transition with typed arguments.
+func NewTransition[TState, TTrigger comparable, TArgs any](source, destination TState, trigger TTrigger, args TArgs) Transition[TState, TTrigger, TArgs] {
+	return Transition[TState, TTrigger, TArgs]{
 		Source:      source,
 		Destination: destination,
 		Trigger:     trigger,
-		Parameters:  parameters,
+		Args:        args,
 	}
 }
 
 // NewInitialTransition creates a new initial transition.
-func NewInitialTransition[TState, TTrigger comparable](source, destination TState, trigger TTrigger, parameters ...any) Transition[TState, TTrigger] {
-	t := NewTransition(source, destination, trigger, parameters...)
-	t.isInitial = true
-	return t
+func NewInitialTransition[TState, TTrigger comparable, TArgs any](source, destination TState, trigger TTrigger, args TArgs) Transition[TState, TTrigger, TArgs] {
+	return Transition[TState, TTrigger, TArgs]{
+		Source:      source,
+		Destination: destination,
+		Trigger:     trigger,
+		Args:        args,
+		isInitial:   true,
+	}
 }
 
 // IsReentry returns true if the transition is a re-entry, i.e., the identity transition.
-func (t Transition[TState, TTrigger]) IsReentry() bool {
+func (t Transition[TState, TTrigger, TArgs]) IsReentry() bool {
 	return any(t.Source) == any(t.Destination)
 }
 
 // IsInitial returns true if this is an initial transition.
-func (t Transition[TState, TTrigger]) IsInitial() bool {
+func (t Transition[TState, TTrigger, TArgs]) IsInitial() bool {
 	return t.isInitial
+}
+
+// internalTransition is used internally with untyped args for storage.
+type internalTransition[TState, TTrigger comparable] struct {
+	Source      TState
+	Destination TState
+	Trigger     TTrigger
+	Args        any
+	isInitial   bool
+}
+
+// toTyped converts an internal transition to a typed transition.
+func toTypedTransition[TState, TTrigger comparable, TArgs any](t internalTransition[TState, TTrigger]) Transition[TState, TTrigger, TArgs] {
+	var args TArgs
+	if t.Args != nil {
+		args, _ = t.Args.(TArgs)
+	}
+	return Transition[TState, TTrigger, TArgs]{
+		Source:      t.Source,
+		Destination: t.Destination,
+		Trigger:     t.Trigger,
+		Args:        args,
+		isInitial:   t.isInitial,
+	}
 }

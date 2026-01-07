@@ -111,22 +111,22 @@ func (sr *StateRepresentation[TState, TTrigger]) SetInitialTransition(target TSt
 }
 
 // CanHandle returns true if this state can handle the specified trigger.
-func (sr *StateRepresentation[TState, TTrigger]) CanHandle(trigger TTrigger, args ...any) bool {
-	result := sr.TryFindHandler(trigger, args...)
+func (sr *StateRepresentation[TState, TTrigger]) CanHandle(trigger TTrigger, args any) bool {
+	result := sr.TryFindHandler(trigger, args)
 	return result != nil && result.Handler != nil
 }
 
 // TryFindHandler attempts to find a handler for the specified trigger.
-func (sr *StateRepresentation[TState, TTrigger]) TryFindHandler(trigger TTrigger, args ...any) *TriggerBehaviourResult[TState, TTrigger] {
-	result := sr.TryFindLocalHandler(trigger, args...)
+func (sr *StateRepresentation[TState, TTrigger]) TryFindHandler(trigger TTrigger, args any) *TriggerBehaviourResult[TState, TTrigger] {
+	result := sr.TryFindLocalHandler(trigger, args)
 	if result == nil && sr.superstate != nil {
-		result = sr.superstate.TryFindHandler(trigger, args...)
+		result = sr.superstate.TryFindHandler(trigger, args)
 	}
 	return result
 }
 
 // TryFindLocalHandler attempts to find a local handler for the specified trigger.
-func (sr *StateRepresentation[TState, TTrigger]) TryFindLocalHandler(trigger TTrigger, args ...any) *TriggerBehaviourResult[TState, TTrigger] {
+func (sr *StateRepresentation[TState, TTrigger]) TryFindLocalHandler(trigger TTrigger, args any) *TriggerBehaviourResult[TState, TTrigger] {
 	behaviours, exists := sr.triggerBehaviours[trigger]
 	if !exists {
 		return nil
@@ -135,7 +135,7 @@ func (sr *StateRepresentation[TState, TTrigger]) TryFindLocalHandler(trigger TTr
 	// Find all possible handlers that meet guard conditions
 	var possibleBehaviours []TriggerBehaviour[TState, TTrigger]
 	for _, behaviour := range behaviours {
-		if behaviour.GuardConditionsMet(args...) {
+		if behaviour.GuardConditionsMet(args) {
 			possibleBehaviours = append(possibleBehaviours, behaviour)
 		}
 	}
@@ -156,7 +156,7 @@ func (sr *StateRepresentation[TState, TTrigger]) TryFindLocalHandler(trigger TTr
 	// No handlers met guard conditions, return information about unmet guards
 	var unmetGuards []string
 	for _, behaviour := range behaviours {
-		unmetGuards = append(unmetGuards, behaviour.UnmetGuardConditions(args...)...)
+		unmetGuards = append(unmetGuards, behaviour.UnmetGuardConditions(args)...)
 	}
 
 	return &TriggerBehaviourResult[TState, TTrigger]{
@@ -192,26 +192,26 @@ func (sr *StateRepresentation[TState, TTrigger]) AddDeactivateAction(action Deac
 }
 
 // Enter executes entry actions for this state.
-func (sr *StateRepresentation[TState, TTrigger]) Enter(transition Transition[TState, TTrigger], args ...any) error {
-	if transition.IsReentry() {
-		return sr.ExecuteEntryActions(transition, args...)
+func (sr *StateRepresentation[TState, TTrigger]) Enter(transition internalTransition[TState, TTrigger]) error {
+	if transition.Source == transition.Destination {
+		return sr.ExecuteEntryActions(transition)
 	}
 
 	if !sr.Includes(transition.Source) {
 		if sr.superstate != nil {
-			if err := sr.superstate.Enter(transition, args...); err != nil {
+			if err := sr.superstate.Enter(transition); err != nil {
 				return err
 			}
 		}
-		return sr.ExecuteEntryActions(transition, args...)
+		return sr.ExecuteEntryActions(transition)
 	}
 
 	return nil
 }
 
 // Exit executes exit actions for this state.
-func (sr *StateRepresentation[TState, TTrigger]) Exit(transition Transition[TState, TTrigger]) error {
-	if transition.IsReentry() {
+func (sr *StateRepresentation[TState, TTrigger]) Exit(transition internalTransition[TState, TTrigger]) error {
+	if transition.Source == transition.Destination {
 		return sr.ExecuteExitActions(transition)
 	}
 
@@ -228,9 +228,9 @@ func (sr *StateRepresentation[TState, TTrigger]) Exit(transition Transition[TSta
 }
 
 // ExecuteEntryActions executes all entry actions for this state.
-func (sr *StateRepresentation[TState, TTrigger]) ExecuteEntryActions(transition Transition[TState, TTrigger], args ...any) error {
+func (sr *StateRepresentation[TState, TTrigger]) ExecuteEntryActions(transition internalTransition[TState, TTrigger]) error {
 	for _, action := range sr.entryActions {
-		if err := action.Execute(transition, args...); err != nil {
+		if err := action.Execute(transition); err != nil {
 			return err
 		}
 	}
@@ -238,7 +238,7 @@ func (sr *StateRepresentation[TState, TTrigger]) ExecuteEntryActions(transition 
 }
 
 // ExecuteExitActions executes all exit actions for this state.
-func (sr *StateRepresentation[TState, TTrigger]) ExecuteExitActions(transition Transition[TState, TTrigger]) error {
+func (sr *StateRepresentation[TState, TTrigger]) ExecuteExitActions(transition internalTransition[TState, TTrigger]) error {
 	for _, action := range sr.exitActions {
 		if err := action.Execute(transition); err != nil {
 			return err
@@ -316,11 +316,11 @@ func (sr *StateRepresentation[TState, TTrigger]) IsIncludedIn(state TState) bool
 }
 
 // GetPermittedTriggers returns the triggers that are currently permitted from this state.
-func (sr *StateRepresentation[TState, TTrigger]) GetPermittedTriggers(args ...any) []TTrigger {
-	result := sr.GetLocalPermittedTriggers(args...)
+func (sr *StateRepresentation[TState, TTrigger]) GetPermittedTriggers(args any) []TTrigger {
+	result := sr.GetLocalPermittedTriggers(args)
 
 	if sr.superstate != nil {
-		superTriggers := sr.superstate.GetPermittedTriggers(args...)
+		superTriggers := sr.superstate.GetPermittedTriggers(args)
 		for _, trigger := range superTriggers {
 			if !containsTrigger(result, trigger) {
 				result = append(result, trigger)
@@ -332,11 +332,11 @@ func (sr *StateRepresentation[TState, TTrigger]) GetPermittedTriggers(args ...an
 }
 
 // GetLocalPermittedTriggers returns the triggers that are permitted from this state (not including superstates).
-func (sr *StateRepresentation[TState, TTrigger]) GetLocalPermittedTriggers(args ...any) []TTrigger {
+func (sr *StateRepresentation[TState, TTrigger]) GetLocalPermittedTriggers(args any) []TTrigger {
 	var result []TTrigger
 	for trigger, behaviours := range sr.triggerBehaviours {
 		for _, behaviour := range behaviours {
-			if behaviour.GuardConditionsMet(args...) {
+			if behaviour.GuardConditionsMet(args) {
 				result = append(result, trigger)
 				break
 			}

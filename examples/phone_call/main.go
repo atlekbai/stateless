@@ -80,10 +80,10 @@ func main() {
 		Permit(CallConnected, Connected)
 
 	sm.Configure(Connected).
-		OnEntry(func() {
+		OnEntryAction(func() {
 			fmt.Println("  -> Call connected!")
 		}).
-		OnExit(func() {
+		OnExitAction(func() {
 			fmt.Println("  -> Call ended.")
 		}).
 		Permit(LeftMessage, OffHook).
@@ -96,7 +96,7 @@ func main() {
 		Permit(HungUp, OffHook)
 
 	// Subscribe to transitions
-	sm.OnTransitioned(func(t stateless.Transition[State, Trigger]) {
+	stateless.OnTransitioned[State, Trigger, stateless.NoArgs](sm, func(t stateless.Transition[State, Trigger, stateless.NoArgs]) {
 		fmt.Printf("  Transitioned from %s to %s via %s\n", t.Source, t.Destination, t.Trigger)
 	})
 
@@ -121,12 +121,12 @@ func main() {
 
 func fire(sm *stateless.StateMachine[State, Trigger], trigger Trigger) {
 	fmt.Printf("Firing trigger: %s\n", trigger)
-	if err := sm.Fire(trigger); err != nil {
+	if err := sm.Fire(trigger, nil); err != nil {
 		log.Printf("Error firing trigger %s: %v", trigger, err)
 	}
 }
 
 func printState(sm *stateless.StateMachine[State, Trigger]) {
 	fmt.Printf("Current state: %s\n", sm.State())
-	fmt.Printf("Permitted triggers: %v\n\n", sm.GetPermittedTriggers())
+	fmt.Printf("Permitted triggers: %v\n\n", sm.GetPermittedTriggers(nil))
 }

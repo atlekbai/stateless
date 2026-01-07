@@ -67,13 +67,13 @@ type StateMachine[TState, TTrigger comparable] struct {
 // queuedEvent represents an event waiting to be processed.
 type queuedEvent[TState, TTrigger comparable] struct {
 	trigger TTrigger
-	args    []any
+	args    any
 	ctx     context.Context
 }
 
 // OnTransitionedEvent handles transition event callbacks.
 type OnTransitionedEvent[TState, TTrigger comparable] struct {
-	handlers []func(Transition[TState, TTrigger])
+	handlers []func(internalTransition[TState, TTrigger])
 	mutex    sync.RWMutex
 }
 
@@ -83,21 +83,10 @@ func NewOnTransitionedEvent[TState, TTrigger comparable]() *OnTransitionedEvent[
 }
 
 // Register adds a handler to the event.
-func (e *OnTransitionedEvent[TState, TTrigger]) Register(handler func(Transition[TState, TTrigger])) {
+func (e *OnTransitionedEvent[TState, TTrigger]) Register(handler func(internalTransition[TState, TTrigger])) {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 	e.handlers = append(e.handlers, handler)
-}
-
-// Unregister removes a specific handler from the event.
-func (e *OnTransitionedEvent[TState, TTrigger]) Unregister(handler func(Transition[TState, TTrigger])) {
-	// Note: In Go, function comparison is not straightforward.
-	// This is a simplified implementation that removes the last handler.
-	e.mutex.Lock()
-	defer e.mutex.Unlock()
-	if len(e.handlers) > 0 {
-		e.handlers = e.handlers[:len(e.handlers)-1]
-	}
 }
 
 // UnregisterAll removes all handlers from the event.
@@ -108,7 +97,7 @@ func (e *OnTransitionedEvent[TState, TTrigger]) UnregisterAll() {
 }
 
 // Invoke calls all registered handlers.
-func (e *OnTransitionedEvent[TState, TTrigger]) Invoke(transition Transition[TState, TTrigger]) {
+func (e *OnTransitionedEvent[TState, TTrigger]) Invoke(transition internalTransition[TState, TTrigger]) {
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 	for _, handler := range e.handlers {
@@ -182,34 +171,13 @@ func (sm *StateMachine[TState, TTrigger]) SetTriggerParameters(trigger TTrigger,
 	return config
 }
 
-// SetTriggerParameters1 configures a trigger to require one parameter of a specific type.
-func SetTriggerParameters1[TState, TTrigger comparable, TArg0 any](sm *StateMachine[TState, TTrigger], trigger TTrigger) *TriggerWithParameters1[TTrigger, TArg0] {
-	config := NewTriggerWithParameters1[TTrigger, TArg0](trigger)
-	sm.triggerConfigurations[trigger] = config.TriggerWithParameters
-	return config
+// Fire fires a trigger with optional args (should be a struct or nil).
+func (sm *StateMachine[TState, TTrigger]) Fire(trigger TTrigger, args any) error {
+	return sm.FireCtx(context.Background(), trigger, args)
 }
 
-// SetTriggerParameters2 configures a trigger to require two parameters of specific types.
-func SetTriggerParameters2[TState, TTrigger comparable, TArg0, TArg1 any](sm *StateMachine[TState, TTrigger], trigger TTrigger) *TriggerWithParameters2[TTrigger, TArg0, TArg1] {
-	config := NewTriggerWithParameters2[TTrigger, TArg0, TArg1](trigger)
-	sm.triggerConfigurations[trigger] = config.TriggerWithParameters
-	return config
-}
-
-// SetTriggerParameters3 configures a trigger to require three parameters of specific types.
-func SetTriggerParameters3[TState, TTrigger comparable, TArg0, TArg1, TArg2 any](sm *StateMachine[TState, TTrigger], trigger TTrigger) *TriggerWithParameters3[TTrigger, TArg0, TArg1, TArg2] {
-	config := NewTriggerWithParameters3[TTrigger, TArg0, TArg1, TArg2](trigger)
-	sm.triggerConfigurations[trigger] = config.TriggerWithParameters
-	return config
-}
-
-// Fire fires a trigger.
-func (sm *StateMachine[TState, TTrigger]) Fire(trigger TTrigger, args ...any) error {
-	return sm.FireCtx(context.Background(), trigger, args...)
-}
-
-// FireCtx fires a trigger with a context.
-func (sm *StateMachine[TState, TTrigger]) FireCtx(ctx context.Context, trigger TTrigger, args ...any) error {
+// FireCtx fires a trigger with a context and optional args.
+func (sm *StateMachine[TState, TTrigger]) FireCtx(ctx context.Context, trigger TTrigger, args any) error {
 	sm.mutex.Lock()
 
 	if sm.firingMode == FiringQueued {
@@ -238,7 +206,7 @@ func (sm *StateMachine[TState, TTrigger]) FireCtx(ctx context.Context, trigger T
 			sm.eventQueue = sm.eventQueue[1:]
 			sm.mutex.Unlock()
 
-			if err := sm.internalFire(event.ctx, event.trigger, event.args...); err != nil {
+			if err := sm.internalFire(event.ctx, event.trigger, event.args); err != nil {
 				sm.mutex.Lock()
 				sm.firing = false
 				sm.mutex.Unlock()
@@ -248,11 +216,11 @@ func (sm *StateMachine[TState, TTrigger]) FireCtx(ctx context.Context, trigger T
 	}
 
 	sm.mutex.Unlock()
-	return sm.internalFire(ctx, trigger, args...)
+	return sm.internalFire(ctx, trigger, args)
 }
 
 // internalFire processes a single trigger.
-func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, trigger TTrigger, args ...any) error {
+func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, trigger TTrigger, args any) error {
 	// Check for cancellation
 	select {
 	case <-ctx.Done():
@@ -260,18 +228,11 @@ func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, trig
 	default:
 	}
 
-	// Validate trigger parameters if configured
-	if config, ok := sm.triggerConfigurations[trigger]; ok {
-		if err := config.ValidateParameters(args); err != nil {
-			return err
-		}
-	}
-
 	source := sm.State()
 	representation := sm.getRepresentation(source)
 
 	// Try to find a handler for the trigger
-	result := representation.TryFindHandler(trigger, args...)
+	result := representation.TryFindHandler(trigger, args)
 	if result == nil || result.Handler == nil {
 		return sm.handleUnhandledTrigger(source, trigger, result)
 	}
@@ -282,7 +243,12 @@ func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, trig
 	switch behaviour := handler.(type) {
 	case *TransitioningTriggerBehaviour[TState, TTrigger]:
 		destination := behaviour.Destination
-		transition := NewTransition(source, destination, trigger, args...)
+		transition := internalTransition[TState, TTrigger]{
+			Source:      source,
+			Destination: destination,
+			Trigger:     trigger,
+			Args:        args,
+		}
 
 		// Execute exit actions
 		if err := representation.Exit(transition); err != nil {
@@ -299,32 +265,48 @@ func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, trig
 		destRepresentation := sm.getRepresentation(destination)
 
 		// Execute entry actions
-		if err := destRepresentation.Enter(transition, args...); err != nil {
+		if err := destRepresentation.Enter(transition); err != nil {
 			return err
 		}
 
 		// Handle initial transition if destination has one
 		if destRepresentation.HasInitialTransition() {
 			initialTarget := destRepresentation.InitialTransitionTarget()
-			initialTransition := NewInitialTransition(destination, initialTarget, trigger, args...)
+			initialTransition := internalTransition[TState, TTrigger]{
+				Source:      destination,
+				Destination: initialTarget,
+				Trigger:     trigger,
+				Args:        args,
+				isInitial:   true,
+			}
 
 			// Update state to initial target
 			sm.stateMutator(initialTarget)
 
 			// Execute entry actions for initial target
 			initialTargetRepresentation := sm.getRepresentation(initialTarget)
-			if err := initialTargetRepresentation.Enter(initialTransition, args...); err != nil {
+			if err := initialTargetRepresentation.Enter(initialTransition); err != nil {
 				return err
 			}
 		}
 
 		// Fire transition completed event
-		finalTransition := NewTransition(source, sm.State(), trigger, args...)
+		finalTransition := internalTransition[TState, TTrigger]{
+			Source:      source,
+			Destination: sm.State(),
+			Trigger:     trigger,
+			Args:        args,
+		}
 		sm.onTransitionCompletedEvent.Invoke(finalTransition)
 
 	case *ReentryTriggerBehaviour[TState, TTrigger]:
 		destination := behaviour.Destination
-		transition := NewTransition(source, destination, trigger, args...)
+		transition := internalTransition[TState, TTrigger]{
+			Source:      source,
+			Destination: destination,
+			Trigger:     trigger,
+			Args:        args,
+		}
 
 		// Execute exit actions (reentry still fires exit/entry)
 		if err := representation.Exit(transition); err != nil {
@@ -336,7 +318,7 @@ func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, trig
 
 		// Execute entry actions
 		destRepresentation := sm.getRepresentation(destination)
-		if err := destRepresentation.Enter(transition, args...); err != nil {
+		if err := destRepresentation.Enter(transition); err != nil {
 			return err
 		}
 
@@ -346,8 +328,13 @@ func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, trig
 		// Trigger is ignored, do nothing
 
 	case *DynamicTriggerBehaviour[TState, TTrigger]:
-		destination := behaviour.GetDestinationState(args...)
-		transition := NewTransition(source, destination, trigger, args...)
+		destination := behaviour.GetDestinationState(args)
+		transition := internalTransition[TState, TTrigger]{
+			Source:      source,
+			Destination: destination,
+			Trigger:     trigger,
+			Args:        args,
+		}
 
 		// Execute exit actions
 		if err := representation.Exit(transition); err != nil {
@@ -362,28 +349,44 @@ func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, trig
 
 		// Execute entry actions
 		destRepresentation := sm.getRepresentation(destination)
-		if err := destRepresentation.Enter(transition, args...); err != nil {
+		if err := destRepresentation.Enter(transition); err != nil {
 			return err
 		}
 
 		// Handle initial transition if destination has one
 		if destRepresentation.HasInitialTransition() {
 			initialTarget := destRepresentation.InitialTransitionTarget()
-			initialTransition := NewInitialTransition(destination, initialTarget, trigger, args...)
+			initialTransition := internalTransition[TState, TTrigger]{
+				Source:      destination,
+				Destination: initialTarget,
+				Trigger:     trigger,
+				Args:        args,
+				isInitial:   true,
+			}
 			sm.stateMutator(initialTarget)
 
 			initialTargetRepresentation := sm.getRepresentation(initialTarget)
-			if err := initialTargetRepresentation.Enter(initialTransition, args...); err != nil {
+			if err := initialTargetRepresentation.Enter(initialTransition); err != nil {
 				return err
 			}
 		}
 
-		finalTransition := NewTransition(source, sm.State(), trigger, args...)
+		finalTransition := internalTransition[TState, TTrigger]{
+			Source:      source,
+			Destination: sm.State(),
+			Trigger:     trigger,
+			Args:        args,
+		}
 		sm.onTransitionCompletedEvent.Invoke(finalTransition)
 
 	case InternalTriggerBehaviour[TState, TTrigger]:
-		transition := NewTransition(source, source, trigger, args...)
-		if err := behaviour.Execute(transition, args...); err != nil {
+		transition := internalTransition[TState, TTrigger]{
+			Source:      source,
+			Destination: source,
+			Trigger:     trigger,
+			Args:        args,
+		}
+		if err := behaviour.Execute(transition); err != nil {
 			return err
 		}
 		// Internal transitions don't fire transition events
@@ -409,7 +412,7 @@ func (sm *StateMachine[TState, TTrigger]) handleUnhandledTrigger(state TState, t
 
 	// Get permitted triggers for the error message
 	representation := sm.getRepresentation(state)
-	permittedTriggers := representation.GetPermittedTriggers()
+	permittedTriggers := representation.GetPermittedTriggers(nil)
 
 	// Convert to any slice for the error
 	permitted := make([]any, len(permittedTriggers))
@@ -432,13 +435,25 @@ func (sm *StateMachine[TState, TTrigger]) OnUnhandledTrigger(action func(state T
 }
 
 // OnTransitioned registers a callback that will be called when a transition is completed.
-func (sm *StateMachine[TState, TTrigger]) OnTransitioned(action func(transition Transition[TState, TTrigger])) {
-	sm.onTransitionedEvent.Register(action)
+// The callback receives a typed Transition with the specified TArgs type.
+func OnTransitioned[TState, TTrigger comparable, TArgs any](
+	sm *StateMachine[TState, TTrigger],
+	action func(Transition[TState, TTrigger, TArgs]),
+) {
+	sm.onTransitionedEvent.Register(func(t internalTransition[TState, TTrigger]) {
+		action(toTypedTransition[TState, TTrigger, TArgs](t))
+	})
 }
 
 // OnTransitionCompleted registers a callback that will be called after all transition actions are executed.
-func (sm *StateMachine[TState, TTrigger]) OnTransitionCompleted(action func(transition Transition[TState, TTrigger])) {
-	sm.onTransitionCompletedEvent.Register(action)
+// The callback receives a typed Transition with the specified TArgs type.
+func OnTransitionCompleted[TState, TTrigger comparable, TArgs any](
+	sm *StateMachine[TState, TTrigger],
+	action func(Transition[TState, TTrigger, TArgs]),
+) {
+	sm.onTransitionCompletedEvent.Register(func(t internalTransition[TState, TTrigger]) {
+		action(toTypedTransition[TState, TTrigger, TArgs](t))
+	})
 }
 
 // UnregisterAllTransitionedCallbacks removes all OnTransitioned callbacks.
@@ -495,18 +510,18 @@ func (sm *StateMachine[TState, TTrigger]) IsInState(state TState) bool {
 }
 
 // CanFire returns true if the specified trigger can be fired from the current state.
-func (sm *StateMachine[TState, TTrigger]) CanFire(trigger TTrigger, args ...any) bool {
-	return sm.getRepresentation(sm.State()).CanHandle(trigger, args...)
+func (sm *StateMachine[TState, TTrigger]) CanFire(trigger TTrigger, args any) bool {
+	return sm.getRepresentation(sm.State()).CanHandle(trigger, args)
 }
 
 // GetPermittedTriggers returns the triggers that can be fired from the current state.
-func (sm *StateMachine[TState, TTrigger]) GetPermittedTriggers(args ...any) []TTrigger {
-	return sm.getRepresentation(sm.State()).GetPermittedTriggers(args...)
+func (sm *StateMachine[TState, TTrigger]) GetPermittedTriggers(args any) []TTrigger {
+	return sm.getRepresentation(sm.State()).GetPermittedTriggers(args)
 }
 
 // GetDetailedPermittedTriggers returns detailed information about permitted triggers.
-func (sm *StateMachine[TState, TTrigger]) GetDetailedPermittedTriggers(args ...any) []TriggerDetails[TState, TTrigger] {
-	triggers := sm.GetPermittedTriggers(args...)
+func (sm *StateMachine[TState, TTrigger]) GetDetailedPermittedTriggers(args any) []TriggerDetails[TState, TTrigger] {
+	triggers := sm.GetPermittedTriggers(args)
 	details := make([]TriggerDetails[TState, TTrigger], len(triggers))
 	for i, trigger := range triggers {
 		details[i] = NewTriggerDetails[TState](trigger, sm.triggerConfigurations)
@@ -568,7 +583,7 @@ func (sm *StateMachine[TState, TTrigger]) createStateInfo(rep *StateRepresentati
 			if _, ok := behaviour.(*IgnoredTriggerBehaviour[TState, TTrigger]); ok {
 				ignoredTriggers = append(ignoredTriggers, IgnoredTransitionInfo{
 					transitionInfoBase: transitionInfoBase{
-						Trigger: NewTriggerInfo(trigger),
+						Trigger:         NewTriggerInfo(trigger),
 						GuardConditions: convertGuardConditions(behaviour.GetGuard().Conditions),
 					},
 				})

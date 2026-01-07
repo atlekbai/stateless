@@ -9,10 +9,10 @@ type TriggerBehaviour[TState, TTrigger comparable] interface {
 	GetGuard() TransitionGuard
 
 	// GuardConditionsMet returns true if all guard conditions are met.
-	GuardConditionsMet(args ...any) bool
+	GuardConditionsMet(args any) bool
 
 	// UnmetGuardConditions returns the descriptions of all unmet guard conditions.
-	UnmetGuardConditions(args ...any) []string
+	UnmetGuardConditions(args any) []string
 }
 
 // triggerBehaviourBase provides the base implementation for trigger behaviours.
@@ -29,12 +29,12 @@ func (t *triggerBehaviourBase[TState, TTrigger]) GetGuard() TransitionGuard {
 	return t.guard
 }
 
-func (t *triggerBehaviourBase[TState, TTrigger]) GuardConditionsMet(args ...any) bool {
-	return t.guard.GuardConditionsMet(args...)
+func (t *triggerBehaviourBase[TState, TTrigger]) GuardConditionsMet(args any) bool {
+	return t.guard.GuardConditionsMet(args)
 }
 
-func (t *triggerBehaviourBase[TState, TTrigger]) UnmetGuardConditions(args ...any) []string {
-	return t.guard.UnmetGuardConditions(args...)
+func (t *triggerBehaviourBase[TState, TTrigger]) UnmetGuardConditions(args any) []string {
+	return t.guard.UnmetGuardConditions(args)
 }
 
 // TransitioningTriggerBehaviour represents a transition to a fixed destination state.
@@ -100,14 +100,14 @@ func NewIgnoredTriggerBehaviour[TState, TTrigger comparable](
 // DynamicTriggerBehaviour represents a transition to a dynamically determined state.
 type DynamicTriggerBehaviour[TState, TTrigger comparable] struct {
 	triggerBehaviourBase[TState, TTrigger]
-	destination    func(args ...any) TState
+	destination    func(args any) TState
 	TransitionInfo DynamicTransitionInfo
 }
 
 // NewDynamicTriggerBehaviour creates a new dynamic trigger behaviour.
 func NewDynamicTriggerBehaviour[TState, TTrigger comparable](
 	trigger TTrigger,
-	destination func(args ...any) TState,
+	destination func(args any) TState,
 	guard TransitionGuard,
 	info DynamicTransitionInfo,
 ) *DynamicTriggerBehaviour[TState, TTrigger] {
@@ -122,27 +122,27 @@ func NewDynamicTriggerBehaviour[TState, TTrigger comparable](
 }
 
 // GetDestinationState returns the destination state based on the given arguments.
-func (d *DynamicTriggerBehaviour[TState, TTrigger]) GetDestinationState(args ...any) TState {
-	return d.destination(args...)
+func (d *DynamicTriggerBehaviour[TState, TTrigger]) GetDestinationState(args any) TState {
+	return d.destination(args)
 }
 
 // InternalTriggerBehaviour represents an internal transition that doesn't exit/enter the state.
 type InternalTriggerBehaviour[TState, TTrigger comparable] interface {
 	TriggerBehaviour[TState, TTrigger]
-	Execute(transition Transition[TState, TTrigger], args ...any) error
+	Execute(transition internalTransition[TState, TTrigger]) error
 }
 
 // SyncInternalTriggerBehaviour represents a synchronous internal transition.
 type SyncInternalTriggerBehaviour[TState, TTrigger comparable] struct {
 	triggerBehaviourBase[TState, TTrigger]
-	internalAction func(transition Transition[TState, TTrigger], args ...any)
+	internalAction func(transition internalTransition[TState, TTrigger])
 }
 
 // NewSyncInternalTriggerBehaviour creates a new synchronous internal trigger behaviour.
 func NewSyncInternalTriggerBehaviour[TState, TTrigger comparable](
 	trigger TTrigger,
-	guard func(args ...any) bool,
-	internalAction func(transition Transition[TState, TTrigger], args ...any),
+	guard func(args any) bool,
+	internalAction func(transition internalTransition[TState, TTrigger]),
 	guardDescription string,
 ) *SyncInternalTriggerBehaviour[TState, TTrigger] {
 	return &SyncInternalTriggerBehaviour[TState, TTrigger]{
@@ -155,9 +155,9 @@ func NewSyncInternalTriggerBehaviour[TState, TTrigger comparable](
 }
 
 // Execute executes the internal action.
-func (s *SyncInternalTriggerBehaviour[TState, TTrigger]) Execute(transition Transition[TState, TTrigger], args ...any) error {
+func (s *SyncInternalTriggerBehaviour[TState, TTrigger]) Execute(transition internalTransition[TState, TTrigger]) error {
 	if s.internalAction != nil {
-		s.internalAction(transition, args...)
+		s.internalAction(transition)
 	}
 	return nil
 }
