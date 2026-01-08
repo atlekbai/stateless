@@ -81,36 +81,12 @@ func main() {
 > [!TIP]
 > You can generate Mermaid or DOT (Graphviz) diagrams to visualize your state machine. This is helpful for documentation and debugging complex state flows.
 
-```go
-import (
-    "fmt"
-    "github.com/atlekbai/stateless"
-    "github.com/atlekbai/stateless/graph"
-)
-
-// ... state machine configuration ...
-
-// Generate Mermaid diagram
-mermaidGraph := graph.MermaidGraph(sm.GetInfo(), nil)
-fmt.Println(mermaidGraph)
-```
-
-This produces:
-
 ```mermaid
 stateDiagram-v2
+    direction LR
     [*] --> Off
     Off --> On: Toggle
     On --> Off: Toggle
-```
-
-You can also customize the diagram direction:
-
-```go
-// Left to right layout
-mermaidGraph := graph.MermaidGraph(sm.GetInfo(), &graph.MermaidGraphOptions{
-    Direction: graph.MermaidDirectionLeftToRight,
-})
 ```
 
 ## Configuration
@@ -159,17 +135,17 @@ return fmt.Errorf("database error: %w", err)
 ```mermaid
 stateDiagram-v2
     direction LR
-    StateA --> StateB: TriggerX [condition met]
-    StateA --> StateA: TriggerX [condition not met]
+    StateA --> StateB: TriggerX [Function]
 
     note right of StateA
-        Guard evaluates condition
-        Transition only if guard returns nil
+        Guard function evaluates before transition
+        Returns nil: transition proceeds to StateB
+        Returns error: stays in StateA, Fire() returns error
     end note
 ```
 
 > [!TIP]
-> Guards are perfect for modeling business rules. The transition attempts, but the guard decides whether it proceeds.
+> Guards are perfect for modeling business rules. When a guard fails, the state machine stays in the current state and Fire() returns an error - there's no automatic self-transition.
 
 ### Ignored Triggers
 
@@ -181,11 +157,12 @@ sm.Configure(StateA).
 ```mermaid
 stateDiagram-v2
     direction LR
-    StateA --> StateB: TriggerY
+    StateA --> StateA: TriggerX
 
     note right of StateA
-        TriggerX is ignored
-        No error, no state change
+        TriggerX is ignored - shown as self-loop
+        Fire(TriggerX) succeeds but does nothing
+        No error, no state change, no actions
     end note
 ```
 
@@ -227,19 +204,18 @@ sm.Configure(StateA).
 ```mermaid
 stateDiagram-v2
     direction LR
-    state StateA {
-        [*] --> [*]: TriggerX (internal)
-    }
+    StateA --> StateA: TriggerX
 
     note right of StateA
-        No exit/entry actions
-        State unchanged
-        Action executes in-place
+        Internal transition - shown as self-loop
+        No OnExit/OnEntry actions fired
+        Executes InternalTransition action only
+        Differs from PermitReentry
     end note
 ```
 
 > [!TIP]
-> Internal transitions are perfect for handling events that don't change state but need to perform actions (e.g., logging, counters, notifications).
+> Internal transitions are perfect for handling events that don't change state but need to perform actions (e.g., logging, counters, notifications). Unlike reentry transitions, they don't fire OnExit/OnEntry actions.
 
 ### Dynamic Transitions
 
@@ -262,17 +238,19 @@ sm.Configure(StateA).
 ```mermaid
 stateDiagram-v2
     direction LR
-    StateA --> StateB: TriggerX [condition A]
-    StateA --> StateC: TriggerX [condition B]
+    StateA --> StateB: TriggerX
+    StateA --> StateC: TriggerX
 
     note right of StateA
         Destination determined at runtime
-        Based on trigger arguments
+        StateSelector function chooses StateB or StateC
+        Based on context and arguments
+        Only one transition occurs per Fire()
     end note
 ```
 
 > [!NOTE]
-> Dynamic transitions let you determine the destination state at runtime based on trigger arguments or application state. Perfect for complex routing logic.
+> Dynamic transitions let you determine the destination state at runtime based on trigger arguments or application state. Perfect for complex routing logic. The diagram shows possible destinations; the StateSelector function chooses one when the trigger fires.
 
 ## Entry and Exit Actions
 
