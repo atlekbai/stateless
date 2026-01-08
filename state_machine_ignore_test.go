@@ -66,7 +66,10 @@ func TestIgnoredTriggerBehaviour_ExposesCorrectUnderlyingTrigger(t *testing.T) {
 
 func TestIgnoredTriggerBehaviour_WhenGuardConditionFalse_IsGuardConditionMetIsFalse(t *testing.T) {
 	guardFalse := func() bool { return false }
-	ignored := stateless.NewIgnoredTriggerBehaviour[State, Trigger](TriggerX, stateless.NewTransitionGuard(guardFalse, ""))
+	ignored := stateless.NewIgnoredTriggerBehaviour[State, Trigger](
+		TriggerX,
+		stateless.NewTransitionGuard(guardFalse, ""),
+	)
 
 	if ignored.GuardConditionsMet(nil) {
 		t.Error("expected GuardConditionsMet to be false")
@@ -75,7 +78,10 @@ func TestIgnoredTriggerBehaviour_WhenGuardConditionFalse_IsGuardConditionMetIsFa
 
 func TestIgnoredTriggerBehaviour_WhenGuardConditionTrue_IsGuardConditionMetIsTrue(t *testing.T) {
 	guardTrue := func() bool { return true }
-	ignored := stateless.NewIgnoredTriggerBehaviour[State, Trigger](TriggerX, stateless.NewTransitionGuard(guardTrue, ""))
+	ignored := stateless.NewIgnoredTriggerBehaviour[State, Trigger](
+		TriggerX,
+		stateless.NewTransitionGuard(guardTrue, ""),
+	)
 
 	if !ignored.GuardConditionsMet(nil) {
 		t.Error("expected GuardConditionsMet to be true")

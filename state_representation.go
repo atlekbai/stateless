@@ -153,7 +153,10 @@ func (sr *StateRepresentation[TState, TTrigger]) TryFindHandler(
 }
 
 // TryFindLocalHandler attempts to find a local handler for the specified trigger.
-func (sr *StateRepresentation[TState, TTrigger]) TryFindLocalHandler(trigger TTrigger, args any) *TriggerBehaviourResult[TState, TTrigger] {
+func (sr *StateRepresentation[TState, TTrigger]) TryFindLocalHandler(
+	trigger TTrigger,
+	args any,
+) *TriggerBehaviourResult[TState, TTrigger] {
 	behaviours, exists := sr.triggerBehaviours[trigger]
 	if !exists {
 		return nil
@@ -221,7 +224,10 @@ func (sr *StateRepresentation[TState, TTrigger]) AddDeactivateAction(action Deac
 }
 
 // Enter executes entry actions for this state.
-func (sr *StateRepresentation[TState, TTrigger]) Enter(ctx context.Context, transition Transition[TState, TTrigger]) error {
+func (sr *StateRepresentation[TState, TTrigger]) Enter(
+	ctx context.Context,
+	transition Transition[TState, TTrigger],
+) error {
 	// Reentry - execute entry actions for this state only
 	if transition.Source == transition.Destination {
 		return sr.ExecuteEntryActions(ctx, transition)
@@ -249,7 +255,10 @@ func (sr *StateRepresentation[TState, TTrigger]) Enter(ctx context.Context, tran
 }
 
 // Exit executes exit actions for this state.
-func (sr *StateRepresentation[TState, TTrigger]) Exit(ctx context.Context, transition Transition[TState, TTrigger]) error {
+func (sr *StateRepresentation[TState, TTrigger]) Exit(
+	ctx context.Context,
+	transition Transition[TState, TTrigger],
+) error {
 	if transition.Source == transition.Destination {
 		return sr.ExecuteExitActions(ctx, transition)
 	}
@@ -267,7 +276,10 @@ func (sr *StateRepresentation[TState, TTrigger]) Exit(ctx context.Context, trans
 }
 
 // ExecuteEntryActions executes all entry actions for this state.
-func (sr *StateRepresentation[TState, TTrigger]) ExecuteEntryActions(ctx context.Context, transition Transition[TState, TTrigger]) error {
+func (sr *StateRepresentation[TState, TTrigger]) ExecuteEntryActions(
+	ctx context.Context,
+	transition Transition[TState, TTrigger],
+) error {
 	for _, action := range sr.entryActions {
 		if err := action.Execute(ctx, transition); err != nil {
 			return err
@@ -277,7 +289,10 @@ func (sr *StateRepresentation[TState, TTrigger]) ExecuteEntryActions(ctx context
 }
 
 // ExecuteExitActions executes all exit actions for this state.
-func (sr *StateRepresentation[TState, TTrigger]) ExecuteExitActions(ctx context.Context, transition Transition[TState, TTrigger]) error {
+func (sr *StateRepresentation[TState, TTrigger]) ExecuteExitActions(
+	ctx context.Context,
+	transition Transition[TState, TTrigger],
+) error {
 	for _, action := range sr.exitActions {
 		if err := action.Execute(ctx, transition); err != nil {
 			return err

@@ -12,13 +12,13 @@ type EntryActionBehaviour[TState, TTrigger comparable] interface {
 
 // SyncEntryActionBehaviour is a synchronous entry action.
 type SyncEntryActionBehaviour[TState, TTrigger comparable] struct {
-	action      func(ctx context.Context, transition Transition[TState, TTrigger]) error
+	action      TransitionAction[TState, TTrigger]
 	description InvocationInfo
 }
 
 // NewSyncEntryActionBehaviour creates a new synchronous entry action.
 func NewSyncEntryActionBehaviour[TState, TTrigger comparable](
-	action func(ctx context.Context, transition Transition[TState, TTrigger]) error,
+	action TransitionAction[TState, TTrigger],
 	description InvocationInfo,
 ) *SyncEntryActionBehaviour[TState, TTrigger] {
 	return &SyncEntryActionBehaviour[TState, TTrigger]{
@@ -51,13 +51,13 @@ type ExitActionBehaviour[TState, TTrigger comparable] interface {
 
 // SyncExitActionBehaviour is a synchronous exit action.
 type SyncExitActionBehaviour[TState, TTrigger comparable] struct {
-	action      func(ctx context.Context, transition Transition[TState, TTrigger]) error
+	action      TransitionAction[TState, TTrigger]
 	description InvocationInfo
 }
 
 // NewSyncExitActionBehaviour creates a new synchronous exit action.
 func NewSyncExitActionBehaviour[TState, TTrigger comparable](
-	action func(ctx context.Context, transition Transition[TState, TTrigger]) error,
+	action TransitionAction[TState, TTrigger],
 	description InvocationInfo,
 ) *SyncExitActionBehaviour[TState, TTrigger] {
 	return &SyncExitActionBehaviour[TState, TTrigger]{

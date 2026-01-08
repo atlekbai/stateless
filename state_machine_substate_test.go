@@ -269,7 +269,13 @@ func TestWhenTransitioningWithinSameSuperstate(t *testing.T) {
 	}
 
 	if len(expectedOrdering) != len(actualOrdering) {
-		t.Fatalf("expected %d events, got %d.\nExpected: %v\nActual: %v", len(expectedOrdering), len(actualOrdering), expectedOrdering, actualOrdering)
+		t.Fatalf(
+			"expected %d events, got %d.\nExpected: %v\nActual: %v",
+			len(expectedOrdering),
+			len(actualOrdering),
+			expectedOrdering,
+			actualOrdering,
+		)
 	}
 	for i := range expectedOrdering {
 		if expectedOrdering[i] != actualOrdering[i] {

@@ -1,5 +1,14 @@
 package stateless
 
+import "context"
+
+// TransitionAction is a function that is executed during a state transition.
+// It receives a context and the transition information, and returns an error if the action fails.
+type TransitionAction[TState, TTrigger comparable] func(
+	ctx context.Context,
+	t Transition[TState, TTrigger],
+) error
+
 // Transition describes a state transition.
 type Transition[TState, TTrigger comparable] struct {
 	// Source is the state transitioned from.
@@ -35,7 +44,11 @@ func NewTransition[TState, TTrigger comparable](
 }
 
 // NewInitialTransition creates a new initial transition.
-func NewInitialTransition[TState, TTrigger comparable](source, destination TState, trigger TTrigger, args any) Transition[TState, TTrigger] {
+func NewInitialTransition[TState, TTrigger comparable](
+	source, destination TState,
+	trigger TTrigger,
+	args any,
+) Transition[TState, TTrigger] {
 	return Transition[TState, TTrigger]{
 		Source:      source,
 		Destination: destination,

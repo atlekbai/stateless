@@ -420,7 +420,11 @@ func TestWhenDeactivateIsIdempotent(t *testing.T) {
 	}
 
 	if len(actualOrdering) != 0 {
-		t.Errorf("expected 0 events after re-activate (deactivate should be idempotent), got %d: %v", len(actualOrdering), actualOrdering)
+		t.Errorf(
+			"expected 0 events after re-activate (deactivate should be idempotent), got %d: %v",
+			len(actualOrdering),
+			actualOrdering,
+		)
 	}
 }
 

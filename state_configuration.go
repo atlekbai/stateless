@@ -114,9 +114,17 @@ func (sc *StateConfiguration[TState, TTrigger]) PermitReentryIf(
 
 // PermitReentryIfArgs configures the state to re-enter itself when the specified trigger is fired,
 // if the guard condition (which receives args) is met. Entry and exit actions will be executed.
-func (sc *StateConfiguration[TState, TTrigger]) PermitReentryIfArgs(trigger TTrigger, guard func(args any) bool, guardDescription ...string) *StateConfiguration[TState, TTrigger] {
+func (sc *StateConfiguration[TState, TTrigger]) PermitReentryIfArgs(
+	trigger TTrigger,
+	guard func(args any) bool,
+	guardDescription ...string,
+) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddTriggerBehaviour(
-		NewReentryTriggerBehaviour(trigger, sc.representation.UnderlyingState(), NewTransitionGuardWithArgs(guard, firstOrEmpty(guardDescription))),
+		NewReentryTriggerBehaviour(
+			trigger,
+			sc.representation.UnderlyingState(),
+			NewTransitionGuardWithArgs(guard, firstOrEmpty(guardDescription)),
+		),
 	)
 	return sc
 }
@@ -130,7 +138,11 @@ func (sc *StateConfiguration[TState, TTrigger]) Ignore(trigger TTrigger) *StateC
 }
 
 // IgnoreIf configures the state to ignore the specified trigger if the guard condition is met.
-func (sc *StateConfiguration[TState, TTrigger]) IgnoreIf(trigger TTrigger, guard func() bool, guardDescription ...string) *StateConfiguration[TState, TTrigger] {
+func (sc *StateConfiguration[TState, TTrigger]) IgnoreIf(
+	trigger TTrigger,
+	guard func() bool,
+	guardDescription ...string,
+) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddTriggerBehaviour(
 		NewIgnoredTriggerBehaviour[TState](trigger, NewTransitionGuard(guard, firstOrEmpty(guardDescription))),
 	)
@@ -138,7 +150,11 @@ func (sc *StateConfiguration[TState, TTrigger]) IgnoreIf(trigger TTrigger, guard
 }
 
 // IgnoreIfArgs configures the state to ignore the specified trigger if the guard condition (which receives args) is met.
-func (sc *StateConfiguration[TState, TTrigger]) IgnoreIfArgs(trigger TTrigger, guard func(args any) bool, guardDescription ...string) *StateConfiguration[TState, TTrigger] {
+func (sc *StateConfiguration[TState, TTrigger]) IgnoreIfArgs(
+	trigger TTrigger,
+	guard func(args any) bool,
+	guardDescription ...string,
+) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddTriggerBehaviour(
 		NewIgnoredTriggerBehaviour[TState](trigger, NewTransitionGuardWithArgs(guard, firstOrEmpty(guardDescription))),
 	)
@@ -161,7 +177,12 @@ func (sc *StateConfiguration[TState, TTrigger]) PermitDynamic(
 		PossibleDestinationStates:           possibleDestinations,
 	}
 	sc.representation.AddTriggerBehaviour(
-		NewDynamicTriggerBehaviour(trigger, func(_ any) TState { return destinationSelector() }, EmptyTransitionGuard, info),
+		NewDynamicTriggerBehaviour(
+			trigger,
+			func(_ any) TState { return destinationSelector() },
+			EmptyTransitionGuard,
+			info,
+		),
 	)
 	return sc
 }
@@ -204,7 +225,12 @@ func (sc *StateConfiguration[TState, TTrigger]) PermitDynamicIf(
 		DestinationStateSelectorDescription: CreateInvocationInfo(destinationSelector, ""),
 	}
 	sc.representation.AddTriggerBehaviour(
-		NewDynamicTriggerBehaviour(trigger, func(_ any) TState { return destinationSelector() }, NewTransitionGuard(guard, desc), info),
+		NewDynamicTriggerBehaviour(
+			trigger,
+			func(_ any) TState { return destinationSelector() },
+			NewTransitionGuard(guard, desc),
+			info,
+		),
 	)
 	return sc
 }
@@ -235,7 +261,7 @@ func (sc *StateConfiguration[TState, TTrigger]) PermitDynamicArgsIf(
 // and re-entered, and entry/exit actions are not executed.
 func (sc *StateConfiguration[TState, TTrigger]) InternalTransition(
 	trigger TTrigger,
-	action func(ctx context.Context, t Transition[TState, TTrigger]) error,
+	action TransitionAction[TState, TTrigger],
 ) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddTriggerBehaviour(
 		NewSyncInternalTriggerBehaviour(trigger, EmptyTransitionGuard, action),
@@ -248,7 +274,7 @@ func (sc *StateConfiguration[TState, TTrigger]) InternalTransition(
 func (sc *StateConfiguration[TState, TTrigger]) InternalTransitionIf(
 	trigger TTrigger,
 	guard func() bool,
-	action func(ctx context.Context, t Transition[TState, TTrigger]) error,
+	action TransitionAction[TState, TTrigger],
 	guardDescription ...string,
 ) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddTriggerBehaviour(
@@ -262,11 +288,15 @@ func (sc *StateConfiguration[TState, TTrigger]) InternalTransitionIf(
 func (sc *StateConfiguration[TState, TTrigger]) InternalTransitionIfArgs(
 	trigger TTrigger,
 	guard func(args any) bool,
-	action func(ctx context.Context, t Transition[TState, TTrigger]) error,
+	action TransitionAction[TState, TTrigger],
 	guardDescription ...string,
 ) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddTriggerBehaviour(
-		NewSyncInternalTriggerBehaviour(trigger, NewTransitionGuardWithArgs(guard, firstOrEmpty(guardDescription)), action),
+		NewSyncInternalTriggerBehaviour(
+			trigger,
+			NewTransitionGuardWithArgs(guard, firstOrEmpty(guardDescription)),
+			action,
+		),
 	)
 	return sc
 }
@@ -281,7 +311,9 @@ func (sc *StateConfiguration[TState, TTrigger]) InternalTransitionIfArgs(
 //	    }
 //	    return nil
 //	})
-func (sc *StateConfiguration[TState, TTrigger]) OnEntry(action func(ctx context.Context, t Transition[TState, TTrigger]) error) *StateConfiguration[TState, TTrigger] {
+func (sc *StateConfiguration[TState, TTrigger]) OnEntry(
+	action TransitionAction[TState, TTrigger],
+) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddEntryAction(
 		NewSyncEntryActionBehaviour[TState, TTrigger](action, CreateInvocationInfo(action, "")),
 	)
@@ -290,7 +322,9 @@ func (sc *StateConfiguration[TState, TTrigger]) OnEntry(action func(ctx context.
 
 // OnExit configures an action to be executed when exiting this state.
 // The action receives the transition information including source, destination, trigger, and args.
-func (sc *StateConfiguration[TState, TTrigger]) OnExit(action func(ctx context.Context, t Transition[TState, TTrigger]) error) *StateConfiguration[TState, TTrigger] {
+func (sc *StateConfiguration[TState, TTrigger]) OnExit(
+	action TransitionAction[TState, TTrigger],
+) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddExitAction(
 		NewSyncExitActionBehaviour[TState, TTrigger](action, CreateInvocationInfo(action, "")),
 	)
@@ -299,7 +333,9 @@ func (sc *StateConfiguration[TState, TTrigger]) OnExit(action func(ctx context.C
 
 // OnActivate configures an action to be executed when the state machine is activated
 // and this state is the current state.
-func (sc *StateConfiguration[TState, TTrigger]) OnActivate(action func(ctx context.Context) error) *StateConfiguration[TState, TTrigger] {
+func (sc *StateConfiguration[TState, TTrigger]) OnActivate(
+	action func(ctx context.Context) error,
+) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddActivateAction(
 		NewSyncActivateActionBehaviour[TState](action, CreateInvocationInfo(action, "")),
 	)
@@ -308,7 +344,9 @@ func (sc *StateConfiguration[TState, TTrigger]) OnActivate(action func(ctx conte
 
 // OnDeactivate configures an action to be executed when the state machine is deactivated
 // and this state is the current state.
-func (sc *StateConfiguration[TState, TTrigger]) OnDeactivate(action func(ctx context.Context) error) *StateConfiguration[TState, TTrigger] {
+func (sc *StateConfiguration[TState, TTrigger]) OnDeactivate(
+	action func(ctx context.Context) error,
+) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddDeactivateAction(
 		NewSyncDeactivateActionBehaviour[TState](action, CreateInvocationInfo(action, "")),
 	)
@@ -324,7 +362,11 @@ func (sc *StateConfiguration[TState, TTrigger]) SubstateOf(superstate TState) *S
 
 	// Check for circular references
 	if superstateRep.IsIncludedIn(sc.representation.UnderlyingState()) {
-		panic(fmt.Sprintf("circular superstate relationship detected: %v -> %v", sc.representation.UnderlyingState(), superstate))
+		panic(fmt.Sprintf(
+			"circular superstate relationship detected: %v -> %v",
+			sc.representation.UnderlyingState(),
+			superstate,
+		))
 	}
 
 	sc.representation.SetSuperstate(superstateRep)
@@ -334,7 +376,9 @@ func (sc *StateConfiguration[TState, TTrigger]) SubstateOf(superstate TState) *S
 
 // InitialTransition sets the initial transition for this state (used with substates).
 // The destination state must be a substate of this state.
-func (sc *StateConfiguration[TState, TTrigger]) InitialTransition(destinationState TState) *StateConfiguration[TState, TTrigger] {
+func (sc *StateConfiguration[TState, TTrigger]) InitialTransition(
+	destinationState TState,
+) *StateConfiguration[TState, TTrigger] {
 	if sc.representation.UnderlyingState() == destinationState {
 		panic(fmt.Sprintf("initial transition to self is not allowed: state '%v'", destinationState))
 	}
@@ -348,6 +392,8 @@ func (sc *StateConfiguration[TState, TTrigger]) InitialTransition(destinationSta
 // enforceNotIdentityTransition ensures that a transition is not to the same state.
 func (sc *StateConfiguration[TState, TTrigger]) enforceNotIdentityTransition(destinationState TState) {
 	if sc.representation.UnderlyingState() == destinationState {
-		panic(fmt.Sprintf("permit() requires that the destination state is not equal to the source state. To accept a trigger without changing state, use either Ignore() or PermitReentry()"))
+		panic(
+			"permit() requires that the destination state is not equal to the source state. To accept a trigger without changing state, use either Ignore() or PermitReentry()",
+		)
 	}
 }

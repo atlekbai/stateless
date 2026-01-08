@@ -225,7 +225,11 @@ func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, trig
 		// Check for ambiguous handlers (configuration error)
 		if result != nil && result.MultipleHandlersFound {
 			return &InvalidOperationError{
-				Message: fmt.Sprintf("multiple permitted transitions are configured from state '%v' for trigger '%v'; guards should be mutually exclusive", source, trigger),
+				Message: fmt.Sprintf(
+					"multiple permitted transitions are configured from state '%v' for trigger '%v'; guards should be mutually exclusive",
+					source,
+					trigger,
+				),
 			}
 		}
 		return sm.handleUnhandledTrigger(source, trigger, result)
@@ -308,7 +312,12 @@ func (sm *StateMachine[TState, TTrigger]) executeTransition(
 }
 
 // handleInitialTransitions handles initial transitions recursively for nested substates.
-func (sm *StateMachine[TState, TTrigger]) handleInitialTransitions(ctx context.Context, destination TState, trigger TTrigger, args any) error {
+func (sm *StateMachine[TState, TTrigger]) handleInitialTransitions(
+	ctx context.Context,
+	destination TState,
+	trigger TTrigger,
+	args any,
+) error {
 	currentState := destination
 	for {
 		currentRepresentation := sm.getRepresentation(currentState)
@@ -343,7 +352,11 @@ func (sm *StateMachine[TState, TTrigger]) handleInitialTransitions(ctx context.C
 }
 
 // handleUnhandledTrigger handles a trigger that has no valid handler.
-func (sm *StateMachine[TState, TTrigger]) handleUnhandledTrigger(state TState, trigger TTrigger, result *TriggerBehaviourResult[TState, TTrigger]) error {
+func (sm *StateMachine[TState, TTrigger]) handleUnhandledTrigger(
+	state TState,
+	trigger TTrigger,
+	result *TriggerBehaviourResult[TState, TTrigger],
+) error {
 	var unmetGuards []string
 	if result != nil {
 		unmetGuards = result.UnmetGuardConditions
@@ -374,7 +387,9 @@ func (sm *StateMachine[TState, TTrigger]) handleUnhandledTrigger(state TState, t
 
 // OnUnhandledTrigger registers a callback that will be called when a trigger is fired
 // but no valid transition exists.
-func (sm *StateMachine[TState, TTrigger]) OnUnhandledTrigger(action func(state TState, trigger TTrigger, unmetGuards []string)) {
+func (sm *StateMachine[TState, TTrigger]) OnUnhandledTrigger(
+	action func(state TState, trigger TTrigger, unmetGuards []string),
+) {
 	sm.unhandledTriggerAction = action
 }
 
