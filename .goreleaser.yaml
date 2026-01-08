@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+
+version: 2
+
+# This is a library, so we skip building binaries
+builds:
+  - skip: true
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - Merge pull request
+      - Merge branch
+
+release:
+  github:
+    owner: atlekbai
+    name: stateless
+  draft: false
+  prerelease: auto
+  name_template: "v{{.Version}}"
+
+# Validate the go module
+gomod:
+  proxy: true
