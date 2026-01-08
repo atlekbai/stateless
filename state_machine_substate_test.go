@@ -83,11 +83,11 @@ func TestSubstateTransition_GuardBlocked_UsesSuperstateTransition(t *testing.T) 
 	sm := stateless.NewStateMachine[State, Trigger](StateB)
 
 	sm.Configure(StateA).
-		PermitIf(TriggerX, StateD, func() bool { return true })
+		PermitIf(TriggerX, StateD, func(_ any) bool { return true })
 
 	sm.Configure(StateB).
 		SubstateOf(StateA).
-		PermitIf(TriggerX, StateC, func() bool { return guardConditionValue })
+		PermitIf(TriggerX, StateC, func(_ any) bool { return guardConditionValue })
 
 	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -103,11 +103,11 @@ func TestSubstateTransition_GuardOpen_UsesSubstateTransition(t *testing.T) {
 	sm := stateless.NewStateMachine[State, Trigger](StateB)
 
 	sm.Configure(StateA).
-		PermitIf(TriggerX, StateD, func() bool { return true })
+		PermitIf(TriggerX, StateD, func(_ any) bool { return true })
 
 	sm.Configure(StateB).
 		SubstateOf(StateA).
-		PermitIf(TriggerX, StateC, func() bool { return guardConditionValue })
+		PermitIf(TriggerX, StateC, func(_ any) bool { return guardConditionValue })
 
 	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -140,15 +140,15 @@ func TestMultiLayerSubstates_GuardFallthrough(t *testing.T) {
 			sm := stateless.NewStateMachine[string, Trigger]("GrandchildState")
 
 			sm.Configure("ParentState").
-				PermitIf(TriggerX, "ParentStateTarget", func() bool { return tc.parentGuard })
+				PermitIf(TriggerX, "ParentStateTarget", func(_ any) bool { return tc.parentGuard })
 
 			sm.Configure("ChildState").
 				SubstateOf("ParentState").
-				PermitIf(TriggerX, "ChildStateTarget", func() bool { return tc.childGuard })
+				PermitIf(TriggerX, "ChildStateTarget", func(_ any) bool { return tc.childGuard })
 
 			sm.Configure("GrandchildState").
 				SubstateOf("ChildState").
-				PermitIf(TriggerX, "GrandchildStateTarget", func() bool { return tc.grandchildGuard })
+				PermitIf(TriggerX, "GrandchildStateTarget", func(_ any) bool { return tc.grandchildGuard })
 
 			if err := sm.Fire(TriggerX, nil); err != nil {
 				t.Fatalf("unexpected error: %v", err)

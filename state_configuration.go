@@ -50,26 +50,8 @@ func (sc *StateConfiguration[TState, TTrigger]) Permit(
 
 // PermitIf configures the state to transition to the specified destination state
 // when the specified trigger is fired, if the guard condition is met.
+// The guard receives the trigger arguments. If you don't need args, use func(_ any) bool.
 func (sc *StateConfiguration[TState, TTrigger]) PermitIf(
-	trigger TTrigger,
-	destinationState TState,
-	guard func() bool,
-	guardDescription ...string,
-) *StateConfiguration[TState, TTrigger] {
-	sc.enforceNotIdentityTransition(destinationState)
-	sc.representation.AddTriggerBehaviour(
-		NewTransitioningTriggerBehaviour(
-			trigger,
-			destinationState,
-			NewTransitionGuard(guard, firstOrEmpty(guardDescription)),
-		),
-	)
-	return sc
-}
-
-// PermitIfArgs configures the state to transition to the specified destination state
-// when the specified trigger is fired, if the guard condition (which receives args) is met.
-func (sc *StateConfiguration[TState, TTrigger]) PermitIfArgs(
 	trigger TTrigger,
 	destinationState TState,
 	guard func(args any) bool,
@@ -97,24 +79,8 @@ func (sc *StateConfiguration[TState, TTrigger]) PermitReentry(trigger TTrigger) 
 
 // PermitReentryIf configures the state to re-enter itself when the specified trigger is fired,
 // if the guard condition is met. Entry and exit actions will be executed.
+// The guard receives the trigger arguments. If you don't need args, use func(_ any) bool.
 func (sc *StateConfiguration[TState, TTrigger]) PermitReentryIf(
-	trigger TTrigger,
-	guard func() bool,
-	guardDescription ...string,
-) *StateConfiguration[TState, TTrigger] {
-	sc.representation.AddTriggerBehaviour(
-		NewReentryTriggerBehaviour(
-			trigger,
-			sc.representation.UnderlyingState(),
-			NewTransitionGuard(guard, firstOrEmpty(guardDescription)),
-		),
-	)
-	return sc
-}
-
-// PermitReentryIfArgs configures the state to re-enter itself when the specified trigger is fired,
-// if the guard condition (which receives args) is met. Entry and exit actions will be executed.
-func (sc *StateConfiguration[TState, TTrigger]) PermitReentryIfArgs(
 	trigger TTrigger,
 	guard func(args any) bool,
 	guardDescription ...string,
@@ -138,19 +104,8 @@ func (sc *StateConfiguration[TState, TTrigger]) Ignore(trigger TTrigger) *StateC
 }
 
 // IgnoreIf configures the state to ignore the specified trigger if the guard condition is met.
+// The guard receives the trigger arguments. If you don't need args, use func(_ any) bool.
 func (sc *StateConfiguration[TState, TTrigger]) IgnoreIf(
-	trigger TTrigger,
-	guard func() bool,
-	guardDescription ...string,
-) *StateConfiguration[TState, TTrigger] {
-	sc.representation.AddTriggerBehaviour(
-		NewIgnoredTriggerBehaviour[TState](trigger, NewTransitionGuard(guard, firstOrEmpty(guardDescription))),
-	)
-	return sc
-}
-
-// IgnoreIfArgs configures the state to ignore the specified trigger if the guard condition (which receives args) is met.
-func (sc *StateConfiguration[TState, TTrigger]) IgnoreIfArgs(
 	trigger TTrigger,
 	guard func(args any) bool,
 	guardDescription ...string,
@@ -221,21 +176,8 @@ func (sc *StateConfiguration[TState, TTrigger]) InternalTransition(
 
 // InternalTransitionIf configures an internal transition where the state is not exited
 // and re-entered, if the guard condition is met.
+// The guard receives the trigger arguments. If you don't need args, use func(_ any) bool.
 func (sc *StateConfiguration[TState, TTrigger]) InternalTransitionIf(
-	trigger TTrigger,
-	guard func() bool,
-	action TransitionAction[TState, TTrigger],
-	guardDescription ...string,
-) *StateConfiguration[TState, TTrigger] {
-	sc.representation.AddTriggerBehaviour(
-		NewSyncInternalTriggerBehaviour(trigger, NewTransitionGuard(guard, firstOrEmpty(guardDescription)), action),
-	)
-	return sc
-}
-
-// InternalTransitionIfArgs configures an internal transition where the state is not exited
-// and re-entered, if the guard condition (which receives args) is met.
-func (sc *StateConfiguration[TState, TTrigger]) InternalTransitionIfArgs(
 	trigger TTrigger,
 	guard func(args any) bool,
 	action TransitionAction[TState, TTrigger],

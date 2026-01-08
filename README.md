@@ -89,9 +89,15 @@ sm.Configure(StateA).
 
 ```go
 sm.Configure(StateA).
-    PermitIf(TriggerX, StateB, func() bool {
+    PermitIf(TriggerX, StateB, func(args any) bool {
         return someCondition
     }, "Guard description")
+
+// If you don't need args, just ignore them:
+sm.Configure(StateA).
+    PermitIf(TriggerX, StateB, func(_ any) bool {
+        return someCondition
+    })
 ```
 
 ### Ignored Triggers

@@ -158,7 +158,7 @@ func TestInternalTransitionIf_ShouldBeReflectedInPermittedTriggers(t *testing.T)
 	isPermitted := true
 	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).
-		InternalTransitionIf(TriggerX, func() bool { return isPermitted }, func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { return nil })
+		InternalTransitionIf(TriggerX, func(_ any) bool { return isPermitted }, func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { return nil })
 
 	triggers := sm.GetPermittedTriggers(nil)
 	if len(triggers) != 1 {
@@ -286,11 +286,11 @@ func TestInternalTransitionIf_ShouldExecuteOnlyFirstMatchingAction(t *testing.T)
 	executed := false
 
 	sm.Configure(1).
-		InternalTransitionIf(1, func() bool { return true }, func(ctx context.Context, tr stateless.Transition[int, int]) error {
+		InternalTransitionIf(1, func(_ any) bool { return true }, func(ctx context.Context, tr stateless.Transition[int, int]) error {
 			executed = true
 			return nil
 		}).
-		InternalTransitionIf(1, func() bool { return false }, func(ctx context.Context, tr stateless.Transition[int, int]) error {
+		InternalTransitionIf(1, func(_ any) bool { return false }, func(ctx context.Context, tr stateless.Transition[int, int]) error {
 			t.Error("second action should not be executed")
 			return nil
 		})

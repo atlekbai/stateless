@@ -101,7 +101,7 @@ func NewBug(id int, title string) *Bug {
 			fmt.Printf("  Work started on bug #%d\n", bug.ID)
 			return nil
 		}).
-		PermitIf(Resolve, Resolved, func() bool {
+		PermitIf(Resolve, Resolved, func(_ any) bool {
 			return bug.Assignee != ""
 		}, "Must have an assignee to resolve")
 

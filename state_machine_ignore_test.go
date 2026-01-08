@@ -25,7 +25,7 @@ func TestIgnoreIf(t *testing.T) {
 	shouldIgnore := true
 	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).
-		IgnoreIf(TriggerX, func() bool { return shouldIgnore })
+		IgnoreIf(TriggerX, func(_ any) bool { return shouldIgnore })
 
 	// Should be ignored
 	if err := sm.Fire(TriggerX, nil); err != nil {
@@ -118,7 +118,7 @@ func TestIgnoreIfTrueTriggerMustBeIgnored(t *testing.T) {
 
 	sm.Configure(StateB).
 		SubstateOf(StateA).
-		IgnoreIf(TriggerX, func() bool { return true })
+		IgnoreIf(TriggerX, func(_ any) bool { return true })
 
 	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -137,7 +137,7 @@ func TestIgnoreIfFalseTriggerMustNotBeIgnored(t *testing.T) {
 
 	sm.Configure(StateB).
 		SubstateOf(StateA).
-		IgnoreIf(TriggerX, func() bool { return false })
+		IgnoreIf(TriggerX, func(_ any) bool { return false })
 
 	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
