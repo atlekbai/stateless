@@ -357,7 +357,9 @@ func TestDotGraph_WhenDiscriminatedByAnonymousGuardWithDescription(t *testing.T)
 
 func TestDotGraph_DestinationStateIsDynamic(t *testing.T) {
 	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
-	sm.Configure(TestStateA).PermitDynamic(TestTriggerX, func(_ any) TestState { return TestStateB })
+	sm.Configure(TestStateA).PermitDynamic(TestTriggerX, func(_ context.Context, _ any) (TestState, error) {
+		return TestStateB, nil
+	})
 
 	dotGraph := graph.UmlDotGraph(sm.GetInfo())
 
@@ -489,7 +491,7 @@ func TestDotGraph_UmlWithDynamic(t *testing.T) {
 	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
 	sm.Configure(TestStateA).PermitDynamic(
 		TestTriggerX,
-		func(_ any) TestState { return TestStateB },
+		func(_ context.Context, _ any) (TestState, error) { return TestStateB, nil },
 		stateless.DynamicStateInfo{DestinationState: "B", Criterion: "ChoseB"},
 		stateless.DynamicStateInfo{DestinationState: "C", Criterion: "ChoseC"},
 	)
@@ -647,8 +649,8 @@ func TestMermaidGraph_WhenDiscriminatedByAnonymousGuardWithDescription(t *testin
 
 func TestMermaidGraph_DestinationStateIsDynamic(t *testing.T) {
 	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
-	sm.Configure(TestStateA).PermitDynamic(TestTriggerX, func(_ any) TestState {
-		return TestStateB
+	sm.Configure(TestStateA).PermitDynamic(TestTriggerX, func(_ context.Context, _ any) (TestState, error) {
+		return TestStateB, nil
 	})
 	sm.Configure(TestStateB)
 
@@ -664,7 +666,7 @@ func TestMermaidGraph_DestinationStateIsDynamicWithPossibleDestinations(t *testi
 	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
 	sm.Configure(TestStateA).PermitDynamic(
 		TestTriggerX,
-		func(_ any) TestState { return TestStateB },
+		func(_ context.Context, _ any) (TestState, error) { return TestStateB, nil },
 		stateless.DynamicStateInfo{DestinationState: "B", Criterion: "Going to B"},
 		stateless.DynamicStateInfo{DestinationState: "C", Criterion: "Going to C"},
 	)

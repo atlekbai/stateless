@@ -251,7 +251,10 @@ func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, tr T
 		return sm.executeTransition(ctx, source, behaviour.Destination, tr, args, representation)
 
 	case *DynamicTriggerBehaviour[TState, TTrigger]:
-		destination := behaviour.GetDestinationState(args)
+		destination, err := behaviour.GetDestinationState(ctx, args)
+		if err != nil {
+			return err
+		}
 		return sm.executeTransition(ctx, source, destination, tr, args, representation)
 
 	case *IgnoredTriggerBehaviour[TState, TTrigger]:

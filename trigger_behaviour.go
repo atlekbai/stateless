@@ -120,8 +120,9 @@ func NewDynamicTriggerBehaviour[TState, TTrigger comparable](
 }
 
 // GetDestinationState returns the destination state based on the given arguments.
-func (d *DynamicTriggerBehaviour[TState, TTrigger]) GetDestinationState(args any) TState {
-	return d.destination(args)
+// Returns an error if the destination cannot be determined.
+func (d *DynamicTriggerBehaviour[TState, TTrigger]) GetDestinationState(ctx context.Context, args any) (TState, error) {
+	return d.destination(ctx, args)
 }
 
 // InternalTriggerBehaviour represents an internal transition that doesn't exit/enter the state.
