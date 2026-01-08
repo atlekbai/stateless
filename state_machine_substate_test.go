@@ -2,7 +2,6 @@ package stateless_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/atlekbai/stateless"
@@ -90,7 +89,7 @@ func TestSubstateTransition_GuardBlocked_UsesSuperstateTransition(t *testing.T) 
 		SubstateOf(StateA).
 		PermitIf(TriggerX, StateC, func(_ context.Context, _ any) error {
 			if !guardConditionValue {
-				return errors.New("guard blocked")
+				return stateless.Reject("guard blocked")
 			}
 			return nil
 		})
@@ -115,7 +114,7 @@ func TestSubstateTransition_GuardOpen_UsesSubstateTransition(t *testing.T) {
 		SubstateOf(StateA).
 		PermitIf(TriggerX, StateC, func(_ context.Context, _ any) error {
 			if !guardConditionValue {
-				return errors.New("guard blocked")
+				return stateless.Reject("guard blocked")
 			}
 			return nil
 		})
@@ -153,7 +152,7 @@ func TestMultiLayerSubstates_GuardFallthrough(t *testing.T) {
 			sm.Configure("ParentState").
 				PermitIf(TriggerX, "ParentStateTarget", func(_ context.Context, _ any) error {
 					if !tc.parentGuard {
-						return errors.New("parent guard blocked")
+						return stateless.Reject("parent guard blocked")
 					}
 					return nil
 				})
@@ -162,7 +161,7 @@ func TestMultiLayerSubstates_GuardFallthrough(t *testing.T) {
 				SubstateOf("ParentState").
 				PermitIf(TriggerX, "ChildStateTarget", func(_ context.Context, _ any) error {
 					if !tc.childGuard {
-						return errors.New("child guard blocked")
+						return stateless.Reject("child guard blocked")
 					}
 					return nil
 				})
@@ -171,7 +170,7 @@ func TestMultiLayerSubstates_GuardFallthrough(t *testing.T) {
 				SubstateOf("ChildState").
 				PermitIf(TriggerX, "GrandchildStateTarget", func(_ context.Context, _ any) error {
 					if !tc.grandchildGuard {
-						return errors.New("grandchild guard blocked")
+						return stateless.Reject("grandchild guard blocked")
 					}
 					return nil
 				})

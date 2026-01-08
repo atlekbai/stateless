@@ -34,16 +34,18 @@
 //
 // # Guards
 //
-// Add conditions to transitions. Guards return nil to allow the transition,
-// or an error describing why it's blocked:
+// Add conditions to transitions. Use Reject() for expected rejections:
 //
 //	sm.Configure(StateA).
-//	    PermitIf(TriggerX, StateB, func(args any) error {
+//	    PermitIf(TriggerX, StateB, func(_ context.Context, _ any) error {
 //	        if !someCondition {
-//	            return errors.New("condition not met")
+//	            return stateless.Reject("condition not met")
 //	        }
 //	        return nil
 //	    })
+//
+// Any other error returned from a guard is treated as an unexpected error
+// and will propagate immediately.
 //
 // # Hierarchical States
 //

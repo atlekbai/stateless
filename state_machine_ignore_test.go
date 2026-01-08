@@ -2,7 +2,6 @@ package stateless_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/atlekbai/stateless"
@@ -29,7 +28,7 @@ func TestIgnoreIf(t *testing.T) {
 	sm.Configure(StateA).
 		IgnoreIf(TriggerX, func(_ context.Context, _ any) error {
 			if !shouldIgnore {
-				return errors.New("should not ignore")
+				return stateless.Reject("should not ignore")
 			}
 			return nil
 		})
@@ -72,7 +71,7 @@ func TestIgnoredTriggerBehaviour_ExposesCorrectUnderlyingTrigger(t *testing.T) {
 }
 
 func TestIgnoredTriggerBehaviour_WhenGuardConditionFalse_IsGuardConditionMetIsFalse(t *testing.T) {
-	guardFalse := func(_ context.Context, _ any) error { return errors.New("guard failed") }
+	guardFalse := func(_ context.Context, _ any) error { return stateless.Reject("guard failed") }
 	ignored := stateless.NewIgnoredTriggerBehaviour[State, Trigger](
 		TriggerX,
 		stateless.NewTransitionGuard(guardFalse),
@@ -144,7 +143,7 @@ func TestIgnoreIfFalseTriggerMustNotBeIgnored(t *testing.T) {
 
 	sm.Configure(StateB).
 		SubstateOf(StateA).
-		IgnoreIf(TriggerX, func(_ context.Context, _ any) error { return errors.New("guard failed") })
+		IgnoreIf(TriggerX, func(_ context.Context, _ any) error { return stateless.Reject("guard failed") })
 
 	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)

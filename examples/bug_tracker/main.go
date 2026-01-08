@@ -3,7 +3,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 
@@ -104,7 +103,7 @@ func NewBug(id int, title string) *Bug {
 		}).
 		PermitIf(Resolve, Resolved, func(_ context.Context, _ any) error {
 			if bug.Assignee == "" {
-				return errors.New("must have an assignee to resolve")
+				return stateless.Reject("must have an assignee to resolve")
 			}
 			return nil
 		})

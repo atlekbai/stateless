@@ -2,7 +2,6 @@ package stateless_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/atlekbai/stateless"
@@ -195,7 +194,7 @@ func TestPermitDynamicIf_With_TriggerParameter_Permits_Transition_When_GuardCond
 				if da, ok := args.(DynamicArgs); ok && da.Value == 1 {
 					return nil
 				}
-				return errors.New("guard failed")
+				return stateless.Reject("guard failed")
 			},
 		)
 
@@ -228,7 +227,7 @@ func TestPermitDynamicIf_With_2_TriggerParameters_Permits_Transition_When_GuardC
 				if da, ok := args.(DynamicArgs2); ok && da.I == 1 && da.J == 2 {
 					return nil
 				}
-				return errors.New("guard failed")
+				return stateless.Reject("guard failed")
 			},
 		)
 
@@ -262,7 +261,7 @@ func TestPermitDynamicIf_With_3_TriggerParameters_Permits_Transition_When_GuardC
 				if da, ok := args.(DynamicArgs3); ok && da.I == 1 && da.J == 2 && da.K == 3 {
 					return nil
 				}
-				return errors.New("guard failed")
+				return stateless.Reject("guard failed")
 			},
 		)
 
@@ -290,7 +289,7 @@ func TestPermitDynamicIf_With_TriggerParameter_Throws_When_GuardCondition_Not_Me
 				if da, ok := args.(DynamicArgs); ok && da.Value == 2 {
 					return nil
 				}
-				return errors.New("guard failed: value must be 2")
+				return stateless.Reject("guard failed: value must be 2")
 			},
 		)
 
@@ -315,7 +314,7 @@ func TestPermitDynamicIf_With_2_TriggerParameters_Throws_When_GuardCondition_Not
 				if da, ok := args.(DynamicArgs2); ok && da.I == 2 && da.J == 3 {
 					return nil
 				}
-				return errors.New("guard failed")
+				return stateless.Reject("guard failed")
 			},
 		)
 
@@ -340,7 +339,7 @@ func TestPermitDynamicIf_With_3_TriggerParameters_Throws_When_GuardCondition_Not
 				if da, ok := args.(DynamicArgs3); ok && da.I == 2 && da.J == 3 && da.K == 4 {
 					return nil
 				}
-				return errors.New("guard failed")
+				return stateless.Reject("guard failed")
 			},
 		)
 

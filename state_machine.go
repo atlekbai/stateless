@@ -221,6 +221,12 @@ func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, tr T
 
 	// Try to find a handler for the trigger
 	result := representation.TryFindHandler(ctx, tr, args)
+
+	// Check for unexpected errors during guard evaluation (not guard rejections)
+	if result != nil && result.UnexpectedError != nil {
+		return result.UnexpectedError
+	}
+
 	if result == nil || result.Handler == nil {
 		// Check for ambiguous handlers (configuration error)
 		if result != nil && result.MultipleHandlersFound {

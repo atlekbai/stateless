@@ -163,8 +163,12 @@ type TriggerBehaviourResult[TState, TTrigger comparable] struct {
 	// Handler is the trigger behaviour that was found.
 	Handler TriggerBehaviour[TState, TTrigger]
 
-	// UnmetGuardConditions contains any unmet guard conditions as errors.
+	// UnmetGuardConditions contains expected guard rejections (GuardRejection errors).
 	UnmetGuardConditions []error
+
+	// UnexpectedError contains an unexpected error that occurred during guard evaluation.
+	// This should be propagated to the caller rather than treated as "guard not met".
+	UnexpectedError error
 
 	// MultipleHandlersFound indicates if multiple handlers matched (configuration error).
 	MultipleHandlersFound bool

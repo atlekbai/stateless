@@ -1,6 +1,7 @@
 package stateless
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -71,4 +72,36 @@ type ParameterConversionError struct {
 
 func (e *ParameterConversionError) Error() string {
 	return e.Message
+}
+
+// GuardRejection represents an expected guard rejection.
+// Use this to indicate that a guard intentionally blocked a transition,
+// as opposed to an unexpected error during guard evaluation.
+type GuardRejection struct {
+	Reason string
+}
+
+func (e *GuardRejection) Error() string {
+	return e.Reason
+}
+
+// Reject creates a GuardRejection with the given reason.
+// Use this in guard functions to indicate an expected rejection:
+//
+//	PermitIf(TriggerX, StateB, func(_ any) error {
+//	    if !someCondition {
+//	        return stateless.Reject("condition not met")
+//	    }
+//	    return nil
+//	})
+func Reject(reason string) error {
+	return &GuardRejection{Reason: reason}
+}
+
+// IsGuardRejection returns true if the error is or contains a GuardRejection (expected rejection).
+// Returns false for unexpected errors that occurred during guard evaluation.
+// Uses errors.As to handle wrapped errors (e.g., from errors.Join).
+func IsGuardRejection(err error) bool {
+	var rejection *GuardRejection
+	return errors.As(err, &rejection)
 }

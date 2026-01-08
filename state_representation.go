@@ -164,15 +164,22 @@ func (sr *StateRepresentation[TState, TTrigger]) TryFindLocalHandler(
 		return nil
 	}
 
-	// Evaluate guards once and cache only non-nil errors
-	var errs []error
+	// Evaluate guards, separating expected rejections from unexpected errors
+	var rejections []error
 	var possibleBehaviours []TriggerBehaviour[TState, TTrigger]
 
 	for _, behaviour := range behaviours {
 		if err := behaviour.GuardConditionsMet(ctx, args); err == nil {
 			possibleBehaviours = append(possibleBehaviours, behaviour)
+		} else if IsGuardRejection(err) {
+			// Expected rejection - guard intentionally blocked
+			rejections = append(rejections, err)
 		} else {
-			errs = append(errs, err)
+			// Unexpected error - propagate immediately
+			return &TriggerBehaviourResult[TState, TTrigger]{
+				Handler:         nil,
+				UnexpectedError: err,
+			}
 		}
 	}
 
@@ -191,10 +198,10 @@ func (sr *StateRepresentation[TState, TTrigger]) TryFindLocalHandler(
 		}
 	}
 
-	// No handlers met guard conditions, return cached errors directly
+	// No handlers met guard conditions, return rejections
 	return &TriggerBehaviourResult[TState, TTrigger]{
 		Handler:              nil,
-		UnmetGuardConditions: errs,
+		UnmetGuardConditions: rejections,
 	}
 }
 

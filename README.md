@@ -123,25 +123,26 @@ sm.Configure(StateA).
 
 ### Conditional Transitions (Guards)
 
-Guards return `nil` if the transition should proceed, or an error describing why it's blocked:
+Guards return `nil` if the transition should proceed, or use `stateless.Reject()` for expected rejections:
 
 ```go
 sm.Configure(StateA).
-    PermitIf(TriggerX, StateB, func(args any) error {
+    PermitIf(TriggerX, StateB, func(_ context.Context, _ any) error {
         if !someCondition {
-            return errors.New("condition not met")
+            return stateless.Reject("condition not met")
         }
         return nil
     })
+```
 
-// If you don't need args, just ignore them:
-sm.Configure(StateA).
-    PermitIf(TriggerX, StateB, func(_ any) error {
-        if !someCondition {
-            return errors.New("condition not met")
-        }
-        return nil
-    })
+**Important:** Use `stateless.Reject()` for expected guard rejections (business logic). Any other error returned from a guard is treated as an unexpected error and will propagate immediately.
+
+```go
+// Expected rejection - guard intentionally blocks transition
+return stateless.Reject("insufficient balance")
+
+// Unexpected error - something went wrong during check
+return fmt.Errorf("database error: %w", err)
 ```
 
 ### Ignored Triggers

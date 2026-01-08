@@ -2,7 +2,6 @@ package stateless_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/atlekbai/stateless"
@@ -161,7 +160,7 @@ func TestInternalTransitionIf_ShouldBeReflectedInPermittedTriggers(t *testing.T)
 	sm.Configure(StateA).
 		InternalTransitionIf(TriggerX, func(_ context.Context, _ any) error {
 			if !isPermitted {
-				return errors.New("not permitted")
+				return stateless.Reject("not permitted")
 			}
 			return nil
 		}, func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { return nil })
@@ -296,7 +295,7 @@ func TestInternalTransitionIf_ShouldExecuteOnlyFirstMatchingAction(t *testing.T)
 			executed = true
 			return nil
 		}).
-		InternalTransitionIf(1, func(_ context.Context, _ any) error { return errors.New("guard failed") }, func(ctx context.Context, tr stateless.Transition[int, int]) error {
+		InternalTransitionIf(1, func(_ context.Context, _ any) error { return stateless.Reject("guard failed") }, func(ctx context.Context, tr stateless.Transition[int, int]) error {
 			t.Error("second action should not be executed")
 			return nil
 		})
