@@ -101,10 +101,22 @@ func (e *OnTransitionedEvent[TState, TTrigger]) Invoke(transition Transition[TSt
 
 // NewStateMachine creates a new state machine with the specified initial state.
 func NewStateMachine[TState, TTrigger comparable](initialState TState) *StateMachine[TState, TTrigger] {
-	state := initialState
+	var (
+		state = initialState
+		mu    sync.RWMutex
+	)
+
 	return NewStateMachineWithExternalStorage[TState, TTrigger](
-		func() TState { return state },
-		func(s TState) { state = s },
+		func() TState {
+			mu.RLock()
+			defer mu.RUnlock()
+			return state
+		},
+		func(s TState) {
+			mu.Lock()
+			defer mu.Unlock()
+			state = s
+		},
 	)
 }
 
