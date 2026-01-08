@@ -30,22 +30,22 @@ func (s *UmlDotGraphStyle) FormatOneCluster(superState *SuperState) string {
 	var sb strings.Builder
 	var label strings.Builder
 
-	label.WriteString(escapeLabel(superState.StateName))
+	label.WriteString(EscapeLabel(superState.StateName))
 
 	if len(superState.EntryActions) > 0 || len(superState.ExitActions) > 0 {
 		label.WriteString("\\n----------")
 		for _, act := range superState.EntryActions {
 			label.WriteString("\\nentry / ")
-			label.WriteString(escapeLabel(act))
+			label.WriteString(EscapeLabel(act))
 		}
 		for _, act := range superState.ExitActions {
 			label.WriteString("\\nexit / ")
-			label.WriteString(escapeLabel(act))
+			label.WriteString(EscapeLabel(act))
 		}
 	}
 
 	sb.WriteString("\n")
-	sb.WriteString(fmt.Sprintf("subgraph \"cluster%s\"\n", escapeLabel(superState.NodeName)))
+	sb.WriteString(fmt.Sprintf("subgraph \"cluster%s\"\n", EscapeLabel(superState.NodeName)))
 	sb.WriteString("\t{\n")
 	sb.WriteString(fmt.Sprintf("\tlabel = \"%s\"\n", label.String()))
 
@@ -59,7 +59,7 @@ func (s *UmlDotGraphStyle) FormatOneCluster(superState *SuperState) string {
 
 // FormatOneState formats a single state.
 func (s *UmlDotGraphStyle) FormatOneState(state *State) string {
-	escapedName := escapeLabel(state.StateName)
+	escapedName := EscapeLabel(state.StateName)
 
 	if len(state.EntryActions) == 0 && len(state.ExitActions) == 0 {
 		return fmt.Sprintf("\"%s\" [label=\"%s\"];\n", escapedName, escapedName)
@@ -70,10 +70,10 @@ func (s *UmlDotGraphStyle) FormatOneState(state *State) string {
 
 	var actions []string
 	for _, act := range state.EntryActions {
-		actions = append(actions, "entry / "+escapeLabel(act))
+		actions = append(actions, "entry / "+EscapeLabel(act))
 	}
 	for _, act := range state.ExitActions {
-		actions = append(actions, "exit / "+escapeLabel(act))
+		actions = append(actions, "exit / "+EscapeLabel(act))
 	}
 
 	sb.WriteString(strings.Join(actions, "\\n"))
@@ -85,7 +85,7 @@ func (s *UmlDotGraphStyle) FormatOneState(state *State) string {
 // FormatOneDecisionNode formats a decision node.
 func (s *UmlDotGraphStyle) FormatOneDecisionNode(nodeName, label string) string {
 	return fmt.Sprintf("\"%s\" [shape = \"diamond\", label = \"%s\"];\n",
-		escapeLabel(nodeName), escapeLabel(label))
+		EscapeLabel(nodeName), EscapeLabel(label))
 }
 
 // FormatAllTransitions formats all transitions.
@@ -138,7 +138,7 @@ func (s *UmlDotGraphStyle) GetInitialTransition(initialState *stateless.StateInf
 	sb.WriteString("\n")
 	sb.WriteString(" init [label=\"\", shape=point];")
 	sb.WriteString("\n")
-	sb.WriteString(fmt.Sprintf(" init -> \"%s\"[style = \"solid\"]", escapeLabel(initialStateName)))
+	sb.WriteString(fmt.Sprintf(" init -> \"%s\"[style = \"solid\"]", EscapeLabel(initialStateName)))
 	sb.WriteString("\n")
 	sb.WriteString("}")
 
@@ -148,11 +148,11 @@ func (s *UmlDotGraphStyle) GetInitialTransition(initialState *stateless.StateInf
 // formatOneLine formats a single transition line.
 func formatOneLine(fromNodeName, toNodeName, label string) string {
 	return fmt.Sprintf("\"%s\" -> \"%s\" [style=\"solid\", label=\"%s\"];",
-		escapeLabel(fromNodeName), escapeLabel(toNodeName), escapeLabel(label))
+		EscapeLabel(fromNodeName), EscapeLabel(toNodeName), EscapeLabel(label))
 }
 
-// escapeLabel escapes special characters in a label.
-func escapeLabel(label string) string {
+// EscapeLabel escapes special characters in a label.
+func EscapeLabel(label string) string {
 	label = strings.ReplaceAll(label, "\\", "\\\\")
 	label = strings.ReplaceAll(label, "\"", "\\\"")
 	return label

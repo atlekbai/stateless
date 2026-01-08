@@ -50,20 +50,38 @@ func (sc *StateConfiguration[TState, TTrigger]) Permit(
 
 // PermitIf configures the state to transition to the specified destination state
 // when the specified trigger is fired, if the guard condition is met.
-func (sc *StateConfiguration[TState, TTrigger]) PermitIf(trigger TTrigger, destinationState TState, guard func() bool, guardDescription ...string) *StateConfiguration[TState, TTrigger] {
+func (sc *StateConfiguration[TState, TTrigger]) PermitIf(
+	trigger TTrigger,
+	destinationState TState,
+	guard func() bool,
+	guardDescription ...string,
+) *StateConfiguration[TState, TTrigger] {
 	sc.enforceNotIdentityTransition(destinationState)
 	sc.representation.AddTriggerBehaviour(
-		NewTransitioningTriggerBehaviour(trigger, destinationState, NewTransitionGuard(guard, firstOrEmpty(guardDescription))),
+		NewTransitioningTriggerBehaviour(
+			trigger,
+			destinationState,
+			NewTransitionGuard(guard, firstOrEmpty(guardDescription)),
+		),
 	)
 	return sc
 }
 
 // PermitIfArgs configures the state to transition to the specified destination state
 // when the specified trigger is fired, if the guard condition (which receives args) is met.
-func (sc *StateConfiguration[TState, TTrigger]) PermitIfArgs(trigger TTrigger, destinationState TState, guard func(args any) bool, guardDescription ...string) *StateConfiguration[TState, TTrigger] {
+func (sc *StateConfiguration[TState, TTrigger]) PermitIfArgs(
+	trigger TTrigger,
+	destinationState TState,
+	guard func(args any) bool,
+	guardDescription ...string,
+) *StateConfiguration[TState, TTrigger] {
 	sc.enforceNotIdentityTransition(destinationState)
 	sc.representation.AddTriggerBehaviour(
-		NewTransitioningTriggerBehaviour(trigger, destinationState, NewTransitionGuardWithArgs(guard, firstOrEmpty(guardDescription))),
+		NewTransitioningTriggerBehaviour(
+			trigger,
+			destinationState,
+			NewTransitionGuardWithArgs(guard, firstOrEmpty(guardDescription)),
+		),
 	)
 	return sc
 }
@@ -79,9 +97,17 @@ func (sc *StateConfiguration[TState, TTrigger]) PermitReentry(trigger TTrigger) 
 
 // PermitReentryIf configures the state to re-enter itself when the specified trigger is fired,
 // if the guard condition is met. Entry and exit actions will be executed.
-func (sc *StateConfiguration[TState, TTrigger]) PermitReentryIf(trigger TTrigger, guard func() bool, guardDescription ...string) *StateConfiguration[TState, TTrigger] {
+func (sc *StateConfiguration[TState, TTrigger]) PermitReentryIf(
+	trigger TTrigger,
+	guard func() bool,
+	guardDescription ...string,
+) *StateConfiguration[TState, TTrigger] {
 	sc.representation.AddTriggerBehaviour(
-		NewReentryTriggerBehaviour(trigger, sc.representation.UnderlyingState(), NewTransitionGuard(guard, firstOrEmpty(guardDescription))),
+		NewReentryTriggerBehaviour(
+			trigger,
+			sc.representation.UnderlyingState(),
+			NewTransitionGuard(guard, firstOrEmpty(guardDescription)),
+		),
 	)
 	return sc
 }

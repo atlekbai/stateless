@@ -48,7 +48,7 @@ func (s *MermaidGraphStyle) GetPrefix() string {
 
 	if s.direction != nil {
 		sb.WriteString("\n")
-		sb.WriteString(fmt.Sprintf("\tdirection %s", getDirectionCode(*s.direction)))
+		sb.WriteString(fmt.Sprintf("\tdirection %s", GetDirectionCode(*s.direction)))
 	}
 
 	// Add state aliases for states with sanitized names
@@ -146,7 +146,7 @@ func (s *MermaidGraphStyle) buildSanitizedNamedStateMap() {
 	uniqueAliases := make(map[string]bool)
 
 	for _, state := range s.graph.States {
-		sanitizedName := sanitizeStateName(state.StateName)
+		sanitizedName := SanitizeStateName(state.StateName)
 
 		if sanitizedName != state.StateName {
 			count := 1
@@ -175,8 +175,8 @@ func (s *MermaidGraphStyle) getSanitizedStateName(stateName string) string {
 	return stateName
 }
 
-// sanitizeStateName removes characters that would cause invalid Mermaid graphs.
-func sanitizeStateName(name string) string {
+// SanitizeStateName removes characters that would cause invalid Mermaid graphs.
+func SanitizeStateName(name string) string {
 	var result strings.Builder
 	for _, c := range name {
 		if !unicode.IsSpace(c) && c != ':' && c != '-' {
@@ -186,8 +186,8 @@ func sanitizeStateName(name string) string {
 	return result.String()
 }
 
-// getDirectionCode returns the Mermaid direction code.
-func getDirectionCode(direction MermaidGraphDirection) string {
+// GetDirectionCode returns the Mermaid direction code.
+func GetDirectionCode(direction MermaidGraphDirection) string {
 	switch direction {
 	case TopToBottom:
 		return "TB"

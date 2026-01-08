@@ -10,8 +10,10 @@ import (
 )
 
 // Test state and trigger types.
-type TestState int
-type TestTrigger int
+type (
+	TestState   int
+	TestTrigger int
+)
 
 const (
 	TestStateA TestState = iota
@@ -743,7 +745,9 @@ func TestMermaidGraph_StateNamesWithSpacesAreAliased(t *testing.T) {
 func TestMermaidGraph_OnEntryWithNamedDelegateAction(t *testing.T) {
 	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
 	sm.Configure(TestStateA).Permit(TestTriggerX, TestStateB)
-	sm.Configure(TestStateB).OnEntry(func(ctx context.Context, tr stateless.Transition[TestState, TestTrigger]) error { return nil })
+	sm.Configure(TestStateB).OnEntry(func(ctx context.Context, t stateless.Transition[TestState, TestTrigger]) error {
+		return nil
+	})
 
 	mermaidGraph := graph.MermaidGraph(sm.GetInfo(), nil)
 
@@ -759,7 +763,12 @@ func TestMermaidGraph_OnEntryWithNamedDelegateAction(t *testing.T) {
 
 func TestMermaidGraph_InternalTransition(t *testing.T) {
 	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
-	sm.Configure(TestStateA).InternalTransition(TestTriggerX, func(ctx context.Context, tr stateless.Transition[TestState, TestTrigger]) error { return nil })
+	sm.Configure(TestStateA).InternalTransition(
+		TestTriggerX,
+		func(ctx context.Context, t stateless.Transition[TestState, TestTrigger]) error {
+			return nil
+		},
+	)
 
 	mermaidGraph := graph.MermaidGraph(sm.GetInfo(), nil)
 

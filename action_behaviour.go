@@ -66,9 +66,9 @@ func NewSyncExitActionBehaviour[TState, TTrigger comparable](
 	}
 }
 
-func (s *SyncExitActionBehaviour[TState, TTrigger]) Execute(ctx context.Context, transition Transition[TState, TTrigger]) error {
+func (s *SyncExitActionBehaviour[TState, TTrigger]) Execute(ctx context.Context, t Transition[TState, TTrigger]) error {
 	if s.action != nil {
-		return s.action(ctx, transition)
+		return s.action(ctx, t)
 	}
 	return nil
 }
