@@ -23,18 +23,27 @@
 //
 //	sm.Configure(StateA).
 //	    Permit(TriggerX, StateB).
-//	    OnEntry(func() { fmt.Println("Entering StateA") })
+//	    OnEntry(func(ctx context.Context, t stateless.Transition[State, Trigger]) error {
+//	        fmt.Println("Entering StateA")
+//	        return nil
+//	    })
 //
 // Fire triggers to cause transitions:
 //
-//	err := sm.Fire(TriggerX)
+//	err := sm.Fire(TriggerX, nil)
 //
 // # Guards
 //
-// Add conditions to transitions:
+// Add conditions to transitions. Guards return nil to allow the transition,
+// or an error describing why it's blocked:
 //
 //	sm.Configure(StateA).
-//	    PermitIf(TriggerX, StateB, func() bool { return someCondition })
+//	    PermitIf(TriggerX, StateB, func(args any) error {
+//	        if !someCondition {
+//	            return errors.New("condition not met")
+//	        }
+//	        return nil
+//	    })
 //
 // # Hierarchical States
 //
