@@ -308,7 +308,7 @@ func TestDotGraph_TwoSimpleTransitions(t *testing.T) {
 }
 
 func TestDotGraph_WhenDiscriminatedByAnonymousGuard(t *testing.T) {
-	anonymousGuard := func(_ any) error { return nil }
+	anonymousGuard := func(_ context.Context, _ any) error { return nil }
 
 	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
 	sm.Configure(TestStateA).PermitIf(TestTriggerX, TestStateB, anonymousGuard)
@@ -332,7 +332,7 @@ func TestDotGraph_WhenDiscriminatedByAnonymousGuard(t *testing.T) {
 }
 
 func TestDotGraph_WhenDiscriminatedByAnonymousGuardWithDescription(t *testing.T) {
-	anonymousGuard := func(_ any) error { return nil }
+	anonymousGuard := func(_ context.Context, _ any) error { return nil }
 
 	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
 	sm.Configure(TestStateA).PermitIf(TestTriggerX, TestStateB, anonymousGuard)
@@ -621,7 +621,7 @@ func TestMermaidGraph_TwoSimpleTransitions(t *testing.T) {
 
 func TestMermaidGraph_WhenDiscriminatedByAnonymousGuard(t *testing.T) {
 	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
-	sm.Configure(TestStateA).PermitIf(TestTriggerX, TestStateB, func(_ any) error { return nil })
+	sm.Configure(TestStateA).PermitIf(TestTriggerX, TestStateB, func(_ context.Context, _ any) error { return nil })
 	sm.Configure(TestStateB)
 
 	mermaidGraph := graph.MermaidGraph(sm.GetInfo(), nil)
@@ -634,7 +634,7 @@ func TestMermaidGraph_WhenDiscriminatedByAnonymousGuard(t *testing.T) {
 
 func TestMermaidGraph_WhenDiscriminatedByAnonymousGuardWithDescription(t *testing.T) {
 	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
-	sm.Configure(TestStateA).PermitIf(TestTriggerX, TestStateB, func(_ any) error { return nil })
+	sm.Configure(TestStateA).PermitIf(TestTriggerX, TestStateB, func(_ context.Context, _ any) error { return nil })
 	sm.Configure(TestStateB)
 
 	mermaidGraph := graph.MermaidGraph(sm.GetInfo(), nil)

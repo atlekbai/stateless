@@ -102,7 +102,7 @@ func NewBug(id int, title string) *Bug {
 			fmt.Printf("  Work started on bug #%d\n", bug.ID)
 			return nil
 		}).
-		PermitIf(Resolve, Resolved, func(_ any) error {
+		PermitIf(Resolve, Resolved, func(_ context.Context, _ any) error {
 			if bug.Assignee == "" {
 				return errors.New("must have an assignee to resolve")
 			}
@@ -153,7 +153,7 @@ func (b *Bug) Fire(trigger Trigger, args any) error {
 }
 
 func (b *Bug) CanFire(trigger Trigger) bool {
-	return b.sm.CanFire(trigger, nil)
+	return b.sm.CanFire(context.Background(), trigger, nil)
 }
 
 func main() {

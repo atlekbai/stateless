@@ -152,25 +152,25 @@ func (sm *StateMachine[TState, TTrigger]) State() TState {
 }
 
 // Configure begins configuration of a state.
-func (sm *StateMachine[TState, TTrigger]) Configure(state TState) *StateConfiguration[TState, TTrigger] {
-	return NewStateConfiguration(
+func (sm *StateMachine[TState, TTrigger]) Configure(state TState) *StateNode[TState, TTrigger] {
+	return NewStateNode(
 		sm.getRepresentation(state),
 		sm.getRepresentation,
 	)
 }
 
 // Fire fires a trigger with optional args (should be a struct or nil).
-func (sm *StateMachine[TState, TTrigger]) Fire(trigger TTrigger, args any) error {
-	return sm.FireCtx(context.Background(), trigger, args)
+func (sm *StateMachine[TState, TTrigger]) Fire(tr TTrigger, args any) error {
+	return sm.FireCtx(context.Background(), tr, args)
 }
 
 // FireCtx fires a trigger with a context and optional args.
-func (sm *StateMachine[TState, TTrigger]) FireCtx(ctx context.Context, trigger TTrigger, args any) error {
+func (sm *StateMachine[TState, TTrigger]) FireCtx(ctx context.Context, tr TTrigger, args any) error {
 	sm.mutex.Lock()
 
 	if sm.firingMode == FiringQueued {
 		sm.eventQueue = append(sm.eventQueue, queuedEvent[TState, TTrigger]{
-			trigger: trigger,
+			trigger: tr,
 			args:    args,
 			ctx:     ctx,
 		})
@@ -204,11 +204,11 @@ func (sm *StateMachine[TState, TTrigger]) FireCtx(ctx context.Context, trigger T
 	}
 
 	sm.mutex.Unlock()
-	return sm.internalFire(ctx, trigger, args)
+	return sm.internalFire(ctx, tr, args)
 }
 
 // internalFire processes a single trigger.
-func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, trigger TTrigger, args any) error {
+func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, tr TTrigger, args any) error {
 	// Check for cancellation
 	select {
 	case <-ctx.Done():
@@ -220,7 +220,7 @@ func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, trig
 	representation := sm.getRepresentation(source)
 
 	// Try to find a handler for the trigger
-	result := representation.TryFindHandler(trigger, args)
+	result := representation.TryFindHandler(ctx, tr, args)
 	if result == nil || result.Handler == nil {
 		// Check for ambiguous handlers (configuration error)
 		if result != nil && result.MultipleHandlersFound {
@@ -228,11 +228,11 @@ func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, trig
 				Message: fmt.Sprintf(
 					"multiple permitted transitions are configured from state '%v' for trigger '%v'; guards should be mutually exclusive",
 					source,
-					trigger,
+					tr,
 				),
 			}
 		}
-		return sm.handleUnhandledTrigger(source, trigger, result)
+		return sm.handleUnhandledTrigger(ctx, source, tr, result)
 	}
 
 	handler := result.Handler
@@ -245,21 +245,21 @@ func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, trig
 		if source == behaviour.Destination {
 			return nil
 		}
-		return sm.executeTransition(ctx, source, behaviour.Destination, trigger, args, representation)
+		return sm.executeTransition(ctx, source, behaviour.Destination, tr, args, representation)
 
 	case *ReentryTriggerBehaviour[TState, TTrigger]:
-		return sm.executeTransition(ctx, source, behaviour.Destination, trigger, args, representation)
+		return sm.executeTransition(ctx, source, behaviour.Destination, tr, args, representation)
 
 	case *DynamicTriggerBehaviour[TState, TTrigger]:
 		destination := behaviour.GetDestinationState(args)
-		return sm.executeTransition(ctx, source, destination, trigger, args, representation)
+		return sm.executeTransition(ctx, source, destination, tr, args, representation)
 
 	case *IgnoredTriggerBehaviour[TState, TTrigger]:
 		// Trigger is ignored, do nothing
 		return nil
 
 	case InternalTriggerBehaviour[TState, TTrigger]:
-		transition := NewTransition(source, source, trigger, args)
+		transition := NewTransition(source, source, tr, args)
 		// Internal transitions don't fire transition events
 		return behaviour.Execute(ctx, transition)
 
@@ -271,13 +271,13 @@ func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, trig
 // executeTransition handles the common transition logic for all transition types.
 func (sm *StateMachine[TState, TTrigger]) executeTransition(
 	ctx context.Context,
-	source TState,
-	destination TState,
-	trigger TTrigger,
+	src TState,
+	dst TState,
+	tr TTrigger,
 	args any,
 	sourceRepresentation *StateRepresentation[TState, TTrigger],
 ) error {
-	transition := NewTransition(source, destination, trigger, args)
+	transition := NewTransition(src, dst, tr, args)
 
 	// Execute exit actions
 	if err := sourceRepresentation.Exit(ctx, transition); err != nil {
@@ -285,27 +285,27 @@ func (sm *StateMachine[TState, TTrigger]) executeTransition(
 	}
 
 	// Update state
-	sm.stateMutator(destination)
+	sm.stateMutator(dst)
 
 	// Fire transition event
 	sm.onTransitionedEvent.Invoke(transition)
 
 	// Execute entry actions
-	destRepresentation := sm.getRepresentation(destination)
+	destRepresentation := sm.getRepresentation(dst)
 	if err := destRepresentation.Enter(ctx, transition); err != nil {
 		return err
 	}
 
 	// Handle initial transition if destination has one (recursively for nested substates)
 	// Only if state hasn't changed during entry actions (in immediate mode, nested fires can change state)
-	if sm.State() == destination {
-		if err := sm.handleInitialTransitions(ctx, destination, trigger, args); err != nil {
+	if sm.State() == dst {
+		if err := sm.handleInitialTransitions(ctx, dst, tr, args); err != nil {
 			return err
 		}
 	}
 
 	// Fire transition completed event
-	finalTransition := NewTransition(source, sm.State(), trigger, args)
+	finalTransition := NewTransition(src, sm.State(), tr, args)
 	sm.onTransitionCompletedEvent.Invoke(finalTransition)
 
 	return nil
@@ -314,11 +314,11 @@ func (sm *StateMachine[TState, TTrigger]) executeTransition(
 // handleInitialTransitions handles initial transitions recursively for nested substates.
 func (sm *StateMachine[TState, TTrigger]) handleInitialTransitions(
 	ctx context.Context,
-	destination TState,
-	trigger TTrigger,
+	dst TState,
+	tr TTrigger,
 	args any,
 ) error {
-	currentState := destination
+	currentState := dst
 	for {
 		currentRepresentation := sm.getRepresentation(currentState)
 		if !currentRepresentation.HasInitialTransition() {
@@ -333,7 +333,7 @@ func (sm *StateMachine[TState, TTrigger]) handleInitialTransitions(
 			return fmt.Errorf("initial transition target '%v' is not a substate of '%v'", initialTarget, currentState)
 		}
 
-		initialTransition := NewInitialTransition(currentState, initialTarget, trigger, args)
+		initialTransition := NewInitialTransition(currentState, initialTarget, tr, args)
 
 		// Fire transition event for initial transition
 		sm.onTransitionedEvent.Invoke(initialTransition)
@@ -353,8 +353,9 @@ func (sm *StateMachine[TState, TTrigger]) handleInitialTransitions(
 
 // handleUnhandledTrigger handles a trigger that has no valid handler.
 func (sm *StateMachine[TState, TTrigger]) handleUnhandledTrigger(
+	ctx context.Context,
 	state TState,
-	trigger TTrigger,
+	tr TTrigger,
 	result *TriggerBehaviourResult[TState, TTrigger],
 ) error {
 	var unmetGuards []string
@@ -363,13 +364,13 @@ func (sm *StateMachine[TState, TTrigger]) handleUnhandledTrigger(
 	}
 
 	if sm.unhandledTriggerAction != nil {
-		sm.unhandledTriggerAction(state, trigger, unmetGuards)
+		sm.unhandledTriggerAction(state, tr, unmetGuards)
 		return nil
 	}
 
 	// Get permitted triggers for the error message
 	representation := sm.getRepresentation(state)
-	permittedTriggers := representation.GetPermittedTriggers(nil)
+	permittedTriggers := representation.GetPermittedTriggers(ctx, nil)
 
 	// Convert to any slice for the error
 	permitted := make([]any, len(permittedTriggers))
@@ -378,7 +379,7 @@ func (sm *StateMachine[TState, TTrigger]) handleUnhandledTrigger(
 	}
 
 	return &InvalidTransitionError{
-		Trigger:           trigger,
+		Trigger:           tr,
 		State:             state,
 		UnmetGuards:       unmetGuards,
 		PermittedTriggers: permitted,
@@ -457,13 +458,13 @@ func (sm *StateMachine[TState, TTrigger]) IsInState(state TState) bool {
 }
 
 // CanFire returns true if the specified trigger can be fired from the current state.
-func (sm *StateMachine[TState, TTrigger]) CanFire(trigger TTrigger, args any) bool {
-	return sm.getRepresentation(sm.State()).CanHandle(trigger, args)
+func (sm *StateMachine[TState, TTrigger]) CanFire(ctx context.Context, trigger TTrigger, args any) bool {
+	return sm.getRepresentation(sm.State()).CanHandle(ctx, trigger, args)
 }
 
 // GetPermittedTriggers returns the triggers that can be fired from the current state.
-func (sm *StateMachine[TState, TTrigger]) GetPermittedTriggers(args any) []TTrigger {
-	return sm.getRepresentation(sm.State()).GetPermittedTriggers(args)
+func (sm *StateMachine[TState, TTrigger]) GetPermittedTriggers(ctx context.Context, args any) []TTrigger {
+	return sm.getRepresentation(sm.State()).GetPermittedTriggers(ctx, args)
 }
 
 // getRepresentation gets or creates the representation for a state.

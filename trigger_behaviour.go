@@ -11,10 +11,10 @@ type TriggerBehaviour[TState, TTrigger comparable] interface {
 	GetGuard() TransitionGuard
 
 	// GuardConditionsMet returns true if all guard conditions are met.
-	GuardConditionsMet(args any) bool
+	GuardConditionsMet(ctx context.Context, args any) bool
 
 	// UnmetGuardConditions returns the descriptions of all unmet guard conditions.
-	UnmetGuardConditions(args any) []string
+	UnmetGuardConditions(ctx context.Context, args any) []string
 }
 
 // triggerBehaviourBase provides the base implementation for trigger behaviours.
@@ -31,12 +31,12 @@ func (t *triggerBehaviourBase[TState, TTrigger]) GetGuard() TransitionGuard {
 	return t.guard
 }
 
-func (t *triggerBehaviourBase[TState, TTrigger]) GuardConditionsMet(args any) bool {
-	return t.guard.GuardConditionsMet(args)
+func (t *triggerBehaviourBase[TState, TTrigger]) GuardConditionsMet(ctx context.Context, args any) bool {
+	return t.guard.GuardConditionsMet(ctx, args)
 }
 
-func (t *triggerBehaviourBase[TState, TTrigger]) UnmetGuardConditions(args any) []string {
-	return t.guard.UnmetGuardConditions(args)
+func (t *triggerBehaviourBase[TState, TTrigger]) UnmetGuardConditions(ctx context.Context, args any) []string {
+	return t.guard.UnmetGuardConditions(ctx, args)
 }
 
 // TransitioningTriggerBehaviour represents a transition to a fixed destination state.

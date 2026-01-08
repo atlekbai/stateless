@@ -131,5 +131,5 @@ func fire(sm *stateless.StateMachine[State, Trigger], trigger Trigger) {
 
 func printState(sm *stateless.StateMachine[State, Trigger]) {
 	fmt.Printf("Current state: %s\n", sm.State())
-	fmt.Printf("Permitted triggers: %v\n\n", sm.GetPermittedTriggers(nil))
+	fmt.Printf("Permitted triggers: %v\n\n", sm.GetPermittedTriggers(context.Background(), nil))
 }

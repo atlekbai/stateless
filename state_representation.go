@@ -124,22 +124,23 @@ func (sr *StateRepresentation[TState, TTrigger]) SetInitialTransition(target TSt
 }
 
 // CanHandle returns true if this state can handle the specified trigger.
-func (sr *StateRepresentation[TState, TTrigger]) CanHandle(trigger TTrigger, args any) bool {
-	result := sr.TryFindHandler(trigger, args)
+func (sr *StateRepresentation[TState, TTrigger]) CanHandle(ctx context.Context, trigger TTrigger, args any) bool {
+	result := sr.TryFindHandler(ctx, trigger, args)
 	return result != nil && result.Handler != nil
 }
 
 // TryFindHandler attempts to find a handler for the specified trigger.
 func (sr *StateRepresentation[TState, TTrigger]) TryFindHandler(
+	ctx context.Context,
 	trigger TTrigger,
 	args any,
 ) *TriggerBehaviourResult[TState, TTrigger] {
-	result := sr.TryFindLocalHandler(trigger, args)
+	result := sr.TryFindLocalHandler(ctx, trigger, args)
 
 	// If no local handler found, or local handler has unmet guards (Handler is nil),
 	// check superstate for a handler
 	if sr.superstate != nil && (result == nil || result.Handler == nil) {
-		superstateResult := sr.superstate.TryFindHandler(trigger, args)
+		superstateResult := sr.superstate.TryFindHandler(ctx, trigger, args)
 		// If superstate has a valid handler, use it
 		if superstateResult != nil && superstateResult.Handler != nil {
 			return superstateResult
@@ -154,6 +155,7 @@ func (sr *StateRepresentation[TState, TTrigger]) TryFindHandler(
 
 // TryFindLocalHandler attempts to find a local handler for the specified trigger.
 func (sr *StateRepresentation[TState, TTrigger]) TryFindLocalHandler(
+	ctx context.Context,
 	trigger TTrigger,
 	args any,
 ) *TriggerBehaviourResult[TState, TTrigger] {
@@ -165,7 +167,7 @@ func (sr *StateRepresentation[TState, TTrigger]) TryFindLocalHandler(
 	// Find all possible handlers that meet guard conditions
 	var possibleBehaviours []TriggerBehaviour[TState, TTrigger]
 	for _, behaviour := range behaviours {
-		if behaviour.GuardConditionsMet(args) {
+		if behaviour.GuardConditionsMet(ctx, args) {
 			possibleBehaviours = append(possibleBehaviours, behaviour)
 		}
 	}
@@ -188,7 +190,7 @@ func (sr *StateRepresentation[TState, TTrigger]) TryFindLocalHandler(
 	// No handlers met guard conditions, return information about unmet guards
 	var unmetGuards []string
 	for _, behaviour := range behaviours {
-		unmetGuards = append(unmetGuards, behaviour.UnmetGuardConditions(args)...)
+		unmetGuards = append(unmetGuards, behaviour.UnmetGuardConditions(ctx, args)...)
 	}
 
 	return &TriggerBehaviourResult[TState, TTrigger]{
@@ -370,11 +372,11 @@ func (sr *StateRepresentation[TState, TTrigger]) IsIncludedIn(state TState) bool
 }
 
 // GetPermittedTriggers returns the triggers that are currently permitted from this state.
-func (sr *StateRepresentation[TState, TTrigger]) GetPermittedTriggers(args any) []TTrigger {
-	result := sr.GetLocalPermittedTriggers(args)
+func (sr *StateRepresentation[TState, TTrigger]) GetPermittedTriggers(ctx context.Context, args any) []TTrigger {
+	result := sr.GetLocalPermittedTriggers(ctx, args)
 
 	if sr.superstate != nil {
-		superTriggers := sr.superstate.GetPermittedTriggers(args)
+		superTriggers := sr.superstate.GetPermittedTriggers(ctx, args)
 		for _, trigger := range superTriggers {
 			if !slices.Contains(result, trigger) {
 				result = append(result, trigger)
@@ -386,11 +388,11 @@ func (sr *StateRepresentation[TState, TTrigger]) GetPermittedTriggers(args any) 
 }
 
 // GetLocalPermittedTriggers returns the triggers that are permitted from this state (not including superstates).
-func (sr *StateRepresentation[TState, TTrigger]) GetLocalPermittedTriggers(args any) []TTrigger {
+func (sr *StateRepresentation[TState, TTrigger]) GetLocalPermittedTriggers(ctx context.Context, args any) []TTrigger {
 	var result []TTrigger
 	for trigger, behaviours := range sr.triggerBehaviours {
 		for _, behaviour := range behaviours {
-			if behaviour.GuardConditionsMet(args) {
+			if behaviour.GuardConditionsMet(ctx, args) {
 				result = append(result, trigger)
 				break
 			}

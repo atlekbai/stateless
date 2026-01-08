@@ -159,20 +159,20 @@ func TestInternalTransitionIf_ShouldBeReflectedInPermittedTriggers(t *testing.T)
 	isPermitted := true
 	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).
-		InternalTransitionIf(TriggerX, func(_ any) error {
+		InternalTransitionIf(TriggerX, func(_ context.Context, _ any) error {
 			if !isPermitted {
 				return errors.New("not permitted")
 			}
 			return nil
 		}, func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { return nil })
 
-	triggers := sm.GetPermittedTriggers(nil)
+	triggers := sm.GetPermittedTriggers(context.Background(), nil)
 	if len(triggers) != 1 {
 		t.Errorf("expected 1 permitted trigger, got %d", len(triggers))
 	}
 
 	isPermitted = false
-	triggers = sm.GetPermittedTriggers(nil)
+	triggers = sm.GetPermittedTriggers(context.Background(), nil)
 	if len(triggers) != 0 {
 		t.Errorf("expected 0 permitted triggers, got %d", len(triggers))
 	}
@@ -292,11 +292,11 @@ func TestInternalTransitionIf_ShouldExecuteOnlyFirstMatchingAction(t *testing.T)
 	executed := false
 
 	sm.Configure(1).
-		InternalTransitionIf(1, func(_ any) error { return nil }, func(ctx context.Context, tr stateless.Transition[int, int]) error {
+		InternalTransitionIf(1, func(_ context.Context, _ any) error { return nil }, func(ctx context.Context, tr stateless.Transition[int, int]) error {
 			executed = true
 			return nil
 		}).
-		InternalTransitionIf(1, func(_ any) error { return errors.New("guard failed") }, func(ctx context.Context, tr stateless.Transition[int, int]) error {
+		InternalTransitionIf(1, func(_ context.Context, _ any) error { return errors.New("guard failed") }, func(ctx context.Context, tr stateless.Transition[int, int]) error {
 			t.Error("second action should not be executed")
 			return nil
 		})

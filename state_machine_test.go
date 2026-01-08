@@ -132,7 +132,7 @@ func TestGetPermittedTriggers(t *testing.T) {
 		Permit(TriggerX, StateB).
 		Permit(TriggerY, StateC)
 
-	triggers := sm.GetPermittedTriggers(nil)
+	triggers := sm.GetPermittedTriggers(context.Background(), nil)
 
 	if len(triggers) != 2 {
 		t.Errorf("expected 2 permitted triggers, got %d", len(triggers))
@@ -436,13 +436,13 @@ func TestCanFire(t *testing.T) {
 		Permit(TriggerX, StateB).
 		Ignore(TriggerY)
 
-	if !sm.CanFire(TriggerX, nil) {
+	if !sm.CanFire(context.Background(), TriggerX, nil) {
 		t.Error("expected CanFire(TriggerX) to be true")
 	}
-	if !sm.CanFire(TriggerY, nil) {
+	if !sm.CanFire(context.Background(), TriggerY, nil) {
 		t.Error("expected CanFire(TriggerY) to be true (ignored triggers can be fired)")
 	}
-	if sm.CanFire(TriggerZ, nil) {
+	if sm.CanFire(context.Background(), TriggerZ, nil) {
 		t.Error("expected CanFire(TriggerZ) to be false")
 	}
 }
@@ -450,19 +450,19 @@ func TestCanFire(t *testing.T) {
 func TestCanFire_WithGuard(t *testing.T) {
 	guardResult := true
 	sm := stateless.NewStateMachine[State, Trigger](StateA)
-	sm.Configure(StateA).PermitIf(TriggerX, StateB, func(_ any) error {
+	sm.Configure(StateA).PermitIf(TriggerX, StateB, func(_ context.Context, _ any) error {
 		if !guardResult {
 			return errors.New("guard failed")
 		}
 		return nil
 	})
 
-	if !sm.CanFire(TriggerX, nil) {
+	if !sm.CanFire(context.Background(), TriggerX, nil) {
 		t.Error("expected CanFire(TriggerX) to be true when guard passes")
 	}
 
 	guardResult = false
-	if sm.CanFire(TriggerX, nil) {
+	if sm.CanFire(context.Background(), TriggerX, nil) {
 		t.Error("expected CanFire(TriggerX) to be false when guard fails")
 	}
 }
@@ -472,7 +472,7 @@ func TestCanFire_WithGuard(t *testing.T) {
 func TestPermitIf_GuardPasses(t *testing.T) {
 	guardCalled := false
 	sm := stateless.NewStateMachine[State, Trigger](StateA)
-	sm.Configure(StateA).PermitIf(TriggerX, StateB, func(_ any) error {
+	sm.Configure(StateA).PermitIf(TriggerX, StateB, func(_ context.Context, _ any) error {
 		guardCalled = true
 		return nil
 	})
@@ -491,7 +491,7 @@ func TestPermitIf_GuardPasses(t *testing.T) {
 
 func TestPermitIf_GuardFails(t *testing.T) {
 	sm := stateless.NewStateMachine[State, Trigger](StateA)
-	sm.Configure(StateA).PermitIf(TriggerX, StateB, func(_ any) error {
+	sm.Configure(StateA).PermitIf(TriggerX, StateB, func(_ context.Context, _ any) error {
 		return errors.New("test guard")
 	})
 
@@ -511,8 +511,8 @@ func TestMultipleGuards(t *testing.T) {
 	// First guard passes -> StateB
 	// Second guard fails -> StateC
 	sm.Configure(StateA).
-		PermitIf(TriggerX, StateB, func(_ any) error { return nil }).
-		PermitIf(TriggerX, StateC, func(_ any) error { return errors.New("guard2 failed") })
+		PermitIf(TriggerX, StateB, func(_ context.Context, _ any) error { return nil }).
+		PermitIf(TriggerX, StateC, func(_ context.Context, _ any) error { return errors.New("guard2 failed") })
 
 	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)

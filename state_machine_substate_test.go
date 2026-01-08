@@ -25,7 +25,7 @@ func TestSubstateOf(t *testing.T) {
 	}
 
 	// StateC should inherit TriggerX from StateB
-	if !sm.CanFire(TriggerX, nil) {
+	if !sm.CanFire(context.Background(), TriggerX, nil) {
 		t.Error("expected TriggerX to be firable from StateC (inherited from StateB)")
 	}
 
@@ -84,11 +84,11 @@ func TestSubstateTransition_GuardBlocked_UsesSuperstateTransition(t *testing.T) 
 	sm := stateless.NewStateMachine[State, Trigger](StateB)
 
 	sm.Configure(StateA).
-		PermitIf(TriggerX, StateD, func(_ any) error { return nil })
+		PermitIf(TriggerX, StateD, func(_ context.Context, _ any) error { return nil })
 
 	sm.Configure(StateB).
 		SubstateOf(StateA).
-		PermitIf(TriggerX, StateC, func(_ any) error {
+		PermitIf(TriggerX, StateC, func(_ context.Context, _ any) error {
 			if !guardConditionValue {
 				return errors.New("guard blocked")
 			}
@@ -109,11 +109,11 @@ func TestSubstateTransition_GuardOpen_UsesSubstateTransition(t *testing.T) {
 	sm := stateless.NewStateMachine[State, Trigger](StateB)
 
 	sm.Configure(StateA).
-		PermitIf(TriggerX, StateD, func(_ any) error { return nil })
+		PermitIf(TriggerX, StateD, func(_ context.Context, _ any) error { return nil })
 
 	sm.Configure(StateB).
 		SubstateOf(StateA).
-		PermitIf(TriggerX, StateC, func(_ any) error {
+		PermitIf(TriggerX, StateC, func(_ context.Context, _ any) error {
 			if !guardConditionValue {
 				return errors.New("guard blocked")
 			}
@@ -151,7 +151,7 @@ func TestMultiLayerSubstates_GuardFallthrough(t *testing.T) {
 			sm := stateless.NewStateMachine[string, Trigger]("GrandchildState")
 
 			sm.Configure("ParentState").
-				PermitIf(TriggerX, "ParentStateTarget", func(_ any) error {
+				PermitIf(TriggerX, "ParentStateTarget", func(_ context.Context, _ any) error {
 					if !tc.parentGuard {
 						return errors.New("parent guard blocked")
 					}
@@ -160,7 +160,7 @@ func TestMultiLayerSubstates_GuardFallthrough(t *testing.T) {
 
 			sm.Configure("ChildState").
 				SubstateOf("ParentState").
-				PermitIf(TriggerX, "ChildStateTarget", func(_ any) error {
+				PermitIf(TriggerX, "ChildStateTarget", func(_ context.Context, _ any) error {
 					if !tc.childGuard {
 						return errors.New("child guard blocked")
 					}
@@ -169,7 +169,7 @@ func TestMultiLayerSubstates_GuardFallthrough(t *testing.T) {
 
 			sm.Configure("GrandchildState").
 				SubstateOf("ChildState").
-				PermitIf(TriggerX, "GrandchildStateTarget", func(_ any) error {
+				PermitIf(TriggerX, "GrandchildStateTarget", func(_ context.Context, _ any) error {
 					if !tc.grandchildGuard {
 						return errors.New("grandchild guard blocked")
 					}
