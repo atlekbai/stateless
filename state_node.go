@@ -139,7 +139,7 @@ func (sn *StateNode[TState, TTrigger]) InternalTransition(
 	act TransitionAction[TState, TTrigger],
 ) *StateNode[TState, TTrigger] {
 	sn.representation.AddTriggerBehaviour(
-		NewSyncInternalTriggerBehaviour(tr, EmptyTransitionGuard, act),
+		NewInternalTriggerBehaviour(tr, EmptyTransitionGuard, act),
 	)
 	return sn
 }
@@ -153,7 +153,7 @@ func (sn *StateNode[TState, TTrigger]) InternalTransitionIf(
 	act TransitionAction[TState, TTrigger],
 ) *StateNode[TState, TTrigger] {
 	sn.representation.AddTriggerBehaviour(
-		NewSyncInternalTriggerBehaviour(tr, NewTransitionGuard(gf), act),
+		NewInternalTriggerBehaviour(tr, NewTransitionGuard(gf), act),
 	)
 	return sn
 }

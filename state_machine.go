@@ -258,7 +258,7 @@ func (sm *StateMachine[TState, TTrigger]) internalFire(ctx context.Context, tr T
 		// Trigger is ignored, do nothing
 		return nil
 
-	case InternalTriggerBehaviour[TState, TTrigger]:
+	case *InternalTriggerBehaviour[TState, TTrigger]:
 		transition := NewTransition(source, source, tr, args)
 		// Internal transitions don't fire transition events
 		return behaviour.Execute(ctx, transition)
@@ -609,7 +609,7 @@ func (sm *StateMachine[TState, TTrigger]) addStateRelationships(
 						DestinationState: destInfo,
 					})
 				}
-			case InternalTriggerBehaviour[TState, TTrigger]:
+			case *InternalTriggerBehaviour[TState, TTrigger]:
 				if destInfo, ok := stateInfos[rep.UnderlyingState()]; ok {
 					info.FixedTransitions = append(info.FixedTransitions, FixedTransitionInfo{
 						transitionInfoBase: transitionInfoBase{
