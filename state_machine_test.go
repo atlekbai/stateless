@@ -214,10 +214,10 @@ func TestStateMachine_String(t *testing.T) {
 func TestOnUnhandledTrigger(t *testing.T) {
 	var unhandledState State
 	var unhandledTrigger Trigger
-	var unhandledGuards []string
+	var unhandledGuards []error
 
 	sm := stateless.NewStateMachine[State, Trigger](StateA)
-	sm.OnUnhandledTrigger(func(state State, trigger Trigger, unmetGuards []string) {
+	sm.OnUnhandledTrigger(func(state State, trigger Trigger, unmetGuards []error) {
 		unhandledState = state
 		unhandledTrigger = trigger
 		unhandledGuards = unmetGuards

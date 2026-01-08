@@ -31,7 +31,7 @@ type StateMachine[TState, TTrigger comparable] struct {
 	stateRepresentations map[TState]*StateRepresentation[TState, TTrigger]
 
 	// unhandledTriggerAction is called when a trigger is fired but not handled.
-	unhandledTriggerAction func(state TState, trigger TTrigger, unmetGuards []string)
+	unhandledTriggerAction func(state TState, trigger TTrigger, unmetGuards []error)
 
 	// onTransitionedEvent is called when a transition is completed.
 	onTransitionedEvent *OnTransitionedEvent[TState, TTrigger]
@@ -358,7 +358,7 @@ func (sm *StateMachine[TState, TTrigger]) handleUnhandledTrigger(
 	tr TTrigger,
 	result *TriggerBehaviourResult[TState, TTrigger],
 ) error {
-	var unmetGuards []string
+	var unmetGuards []error
 	if result != nil {
 		unmetGuards = result.UnmetGuardConditions
 	}
@@ -389,7 +389,7 @@ func (sm *StateMachine[TState, TTrigger]) handleUnhandledTrigger(
 // OnUnhandledTrigger registers a callback that will be called when a trigger is fired
 // but no valid transition exists.
 func (sm *StateMachine[TState, TTrigger]) OnUnhandledTrigger(
-	action func(state TState, trigger TTrigger, unmetGuards []string),
+	action func(state TState, trigger TTrigger, unmetGuards []error),
 ) {
 	sm.unhandledTriggerAction = action
 }

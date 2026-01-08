@@ -32,16 +32,20 @@ func (e *ArgumentError) Error() string {
 type InvalidTransitionError struct {
 	Trigger           any
 	State             any
-	UnmetGuards       []string
+	UnmetGuards       []error
 	PermittedTriggers []any
 }
 
 func (e *InvalidTransitionError) Error() string {
 	if len(e.UnmetGuards) > 0 {
+		guardMessages := make([]string, len(e.UnmetGuards))
+		for i, err := range e.UnmetGuards {
+			guardMessages[i] = err.Error()
+		}
 		return fmt.Sprintf(
 			"trigger '%v' is valid for transition from state '%v' "+
 				"but guard conditions are not met. Guard conditions: %s",
-			e.Trigger, e.State, strings.Join(e.UnmetGuards, ", "))
+			e.Trigger, e.State, strings.Join(guardMessages, ", "))
 	}
 
 	var permitted string

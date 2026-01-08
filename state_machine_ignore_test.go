@@ -78,8 +78,8 @@ func TestIgnoredTriggerBehaviour_WhenGuardConditionFalse_IsGuardConditionMetIsFa
 		stateless.NewTransitionGuard(guardFalse),
 	)
 
-	if ignored.GuardConditionsMet(context.Background(), nil) {
-		t.Error("expected GuardConditionsMet to be false")
+	if ignored.GuardConditionsMet(context.Background(), nil) == nil {
+		t.Error("expected GuardConditionsMet to return an error")
 	}
 }
 
@@ -90,8 +90,8 @@ func TestIgnoredTriggerBehaviour_WhenGuardConditionTrue_IsGuardConditionMetIsTru
 		stateless.NewTransitionGuard(guardTrue),
 	)
 
-	if !ignored.GuardConditionsMet(context.Background(), nil) {
-		t.Error("expected GuardConditionsMet to be true")
+	if ignored.GuardConditionsMet(context.Background(), nil) != nil {
+		t.Error("expected GuardConditionsMet to return nil (no error)")
 	}
 }
 

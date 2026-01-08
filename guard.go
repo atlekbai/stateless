@@ -1,6 +1,9 @@
 package stateless
 
-import "context"
+import (
+	"context"
+	"errors"
+)
 
 // GuardFunc is a function that evaluates a guard condition.
 // It takes a context and arguments of any type, and returns nil if the condition is met,
@@ -40,16 +43,9 @@ func (g GuardCondition) MethodDescription() InvocationInfo {
 	return g.methodDescription
 }
 
-// IsMet returns true if the guard condition is met (returns nil).
-func (g GuardCondition) IsMet(ctx context.Context, args any) bool {
-	if g.Guard == nil {
-		return true
-	}
-	return g.Guard(ctx, args) == nil
-}
-
-// Error returns the error from the guard, or nil if the guard passes.
-func (g GuardCondition) Error(ctx context.Context, args any) error {
+// Evaluate evaluates the guard condition and returns an error if it fails.
+// Returns nil if the guard condition is met.
+func (g GuardCondition) Evaluate(ctx context.Context, args any) error {
 	if g.Guard == nil {
 		return nil
 	}
@@ -86,45 +82,20 @@ func (tg TransitionGuard) Guards() []GuardFunc {
 	return result
 }
 
-// GuardConditionsMet returns true if all guard conditions are met.
-func (tg TransitionGuard) GuardConditionsMet(ctx context.Context, args any) bool {
+// GuardConditionsMet evaluates all guard conditions and returns an error if any fail.
+// Returns nil if all guard conditions are met.
+// If multiple conditions fail, returns all errors joined together.
+func (tg TransitionGuard) GuardConditionsMet(ctx context.Context, args any) error {
+	var errs []error
 	for _, c := range tg.Conditions {
-		if !c.IsMet(ctx, args) {
-			return false
+		if err := c.Evaluate(ctx, args); err != nil {
+			errs = append(errs, err)
 		}
 	}
-	return true
-}
-
-// UnmetGuardConditions returns a list of descriptions for all guard conditions that are not met.
-func (tg TransitionGuard) UnmetGuardConditions(ctx context.Context, args any) []string {
-	var unmet []string
-	for _, c := range tg.Conditions {
-		if err := c.Error(ctx, args); err != nil {
-			// Use the error message as the description
-			unmet = append(unmet, err.Error())
-		}
-	}
-	return unmet
+	return errors.Join(errs...)
 }
 
 // IsEmpty returns true if the transition guard has no conditions.
 func (tg TransitionGuard) IsEmpty() bool {
 	return len(tg.Conditions) == 0
-}
-
-// TypedGuard converts a typed guard function to a guard that takes any args.
-func TypedGuard[TArgs any](guard func(context.Context, TArgs) error) GuardFunc {
-	return func(ctx context.Context, args any) error {
-		if args == nil {
-			var zero TArgs
-			return guard(ctx, zero)
-		}
-		typedArgs, ok := args.(TArgs)
-		if !ok {
-			var zero TArgs
-			return guard(ctx, zero)
-		}
-		return guard(ctx, typedArgs)
-	}
 }

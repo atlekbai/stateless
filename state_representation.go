@@ -164,11 +164,15 @@ func (sr *StateRepresentation[TState, TTrigger]) TryFindLocalHandler(
 		return nil
 	}
 
-	// Find all possible handlers that meet guard conditions
+	// Evaluate guards once and cache only non-nil errors
+	var errs []error
 	var possibleBehaviours []TriggerBehaviour[TState, TTrigger]
+
 	for _, behaviour := range behaviours {
-		if behaviour.GuardConditionsMet(ctx, args) {
+		if err := behaviour.GuardConditionsMet(ctx, args); err == nil {
 			possibleBehaviours = append(possibleBehaviours, behaviour)
+		} else {
+			errs = append(errs, err)
 		}
 	}
 
@@ -187,15 +191,10 @@ func (sr *StateRepresentation[TState, TTrigger]) TryFindLocalHandler(
 		}
 	}
 
-	// No handlers met guard conditions, return information about unmet guards
-	var unmetGuards []string
-	for _, behaviour := range behaviours {
-		unmetGuards = append(unmetGuards, behaviour.UnmetGuardConditions(ctx, args)...)
-	}
-
+	// No handlers met guard conditions, return cached errors directly
 	return &TriggerBehaviourResult[TState, TTrigger]{
 		Handler:              nil,
-		UnmetGuardConditions: unmetGuards,
+		UnmetGuardConditions: errs,
 	}
 }
 
@@ -392,7 +391,7 @@ func (sr *StateRepresentation[TState, TTrigger]) GetLocalPermittedTriggers(ctx c
 	var result []TTrigger
 	for trigger, behaviours := range sr.triggerBehaviours {
 		for _, behaviour := range behaviours {
-			if behaviour.GuardConditionsMet(ctx, args) {
+			if behaviour.GuardConditionsMet(ctx, args) == nil {
 				result = append(result, trigger)
 				break
 			}

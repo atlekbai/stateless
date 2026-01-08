@@ -10,11 +10,8 @@ type TriggerBehaviour[TState, TTrigger comparable] interface {
 	// GetGuard returns the transition guard for this trigger.
 	GetGuard() TransitionGuard
 
-	// GuardConditionsMet returns true if all guard conditions are met.
-	GuardConditionsMet(ctx context.Context, args any) bool
-
-	// UnmetGuardConditions returns the descriptions of all unmet guard conditions.
-	UnmetGuardConditions(ctx context.Context, args any) []string
+	// GuardConditionsMet returns nil if all guard conditions are met, or an error describing why the guard failed.
+	GuardConditionsMet(ctx context.Context, args any) error
 }
 
 // triggerBehaviourBase provides the base implementation for trigger behaviours.
@@ -31,12 +28,8 @@ func (t *triggerBehaviourBase[TState, TTrigger]) GetGuard() TransitionGuard {
 	return t.guard
 }
 
-func (t *triggerBehaviourBase[TState, TTrigger]) GuardConditionsMet(ctx context.Context, args any) bool {
+func (t *triggerBehaviourBase[TState, TTrigger]) GuardConditionsMet(ctx context.Context, args any) error {
 	return t.guard.GuardConditionsMet(ctx, args)
-}
-
-func (t *triggerBehaviourBase[TState, TTrigger]) UnmetGuardConditions(ctx context.Context, args any) []string {
-	return t.guard.UnmetGuardConditions(ctx, args)
 }
 
 // TransitioningTriggerBehaviour represents a transition to a fixed destination state.
@@ -169,8 +162,8 @@ type TriggerBehaviourResult[TState, TTrigger comparable] struct {
 	// Handler is the trigger behaviour that was found.
 	Handler TriggerBehaviour[TState, TTrigger]
 
-	// UnmetGuardConditions contains descriptions of any unmet guard conditions.
-	UnmetGuardConditions []string
+	// UnmetGuardConditions contains any unmet guard conditions as errors.
+	UnmetGuardConditions []error
 
 	// MultipleHandlersFound indicates if multiple handlers matched (configuration error).
 	MultipleHandlersFound bool

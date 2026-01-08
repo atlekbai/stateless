@@ -246,7 +246,7 @@ sm.OnTransitionCompleted(func(t stateless.Transition[State, Trigger]) {
 })
 
 // Handle unhandled triggers
-sm.OnUnhandledTrigger(func(state State, trigger Trigger, guards []string) {
+sm.OnUnhandledTrigger(func(state State, trigger Trigger, guards []error) {
     fmt.Printf("Unhandled trigger %v in state %v\n", trigger, state)
 })
 ```
