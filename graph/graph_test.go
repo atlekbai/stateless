@@ -1,4 +1,4 @@
-package graph
+package graph_test
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/atlekbai/stateless"
+	"github.com/atlekbai/stateless/graph"
 )
 
 // Test state and trigger types.
@@ -64,22 +65,22 @@ func TestUmlDotGraph(t *testing.T) {
 		Permit(TestTriggerZ, TestStateA)
 
 	info := sm.GetInfo()
-	graph := UmlDotGraph(info)
+	dotGraph := graph.UmlDotGraph(info)
 
 	// Check basic structure
-	if !strings.Contains(graph, "digraph") {
+	if !strings.Contains(dotGraph, "digraph") {
 		t.Error("expected DOT graph to contain 'digraph'")
 	}
-	if !strings.Contains(graph, "init") {
+	if !strings.Contains(dotGraph, "init") {
 		t.Error("expected DOT graph to contain 'init' node")
 	}
-	if !strings.Contains(graph, "\"A\"") {
+	if !strings.Contains(dotGraph, "\"A\"") {
 		t.Error("expected DOT graph to contain 'A'")
 	}
-	if !strings.Contains(graph, "\"B\"") {
+	if !strings.Contains(dotGraph, "\"B\"") {
 		t.Error("expected DOT graph to contain 'B'")
 	}
-	if !strings.Contains(graph, "\"C\"") {
+	if !strings.Contains(dotGraph, "\"C\"") {
 		t.Error("expected DOT graph to contain 'C'")
 	}
 }
@@ -95,17 +96,17 @@ func TestMermaidGraph(t *testing.T) {
 		Permit(TestTriggerZ, TestStateA)
 
 	info := sm.GetInfo()
-	direction := LeftToRight
-	graph := MermaidGraph(info, &direction)
+	direction := graph.LeftToRight
+	mermaidGraph := graph.MermaidGraph(info, &direction)
 
 	// Check basic structure
-	if !strings.Contains(graph, "stateDiagram-v2") {
+	if !strings.Contains(mermaidGraph, "stateDiagram-v2") {
 		t.Error("expected Mermaid graph to contain 'stateDiagram-v2'")
 	}
-	if !strings.Contains(graph, "direction LR") {
+	if !strings.Contains(mermaidGraph, "direction LR") {
 		t.Error("expected Mermaid graph to contain 'direction LR'")
 	}
-	if !strings.Contains(graph, "[*] -->") {
+	if !strings.Contains(mermaidGraph, "[*] -->") {
 		t.Error("expected Mermaid graph to contain initial transition")
 	}
 }
@@ -116,12 +117,12 @@ func TestMermaidGraphWithoutDirection(t *testing.T) {
 	sm.Configure(TestStateB).Permit(TestTriggerY, TestStateA)
 
 	info := sm.GetInfo()
-	graph := MermaidGraph(info, nil)
+	mermaidGraph := graph.MermaidGraph(info, nil)
 
-	if !strings.Contains(graph, "stateDiagram-v2") {
+	if !strings.Contains(mermaidGraph, "stateDiagram-v2") {
 		t.Error("expected Mermaid graph to contain 'stateDiagram-v2'")
 	}
-	if strings.Contains(graph, "direction") {
+	if strings.Contains(mermaidGraph, "direction") {
 		t.Error("expected Mermaid graph not to contain 'direction' when not specified")
 	}
 }
@@ -133,10 +134,10 @@ func TestStateGraphWithHierarchy(t *testing.T) {
 	sm.Configure(TestStateC).SubstateOf(TestStateB)
 
 	info := sm.GetInfo()
-	graph := UmlDotGraph(info)
+	dotGraph := graph.UmlDotGraph(info)
 
 	// Check for cluster
-	if !strings.Contains(graph, "subgraph") {
+	if !strings.Contains(dotGraph, "subgraph") {
 		t.Error("expected DOT graph to contain 'subgraph' for hierarchy")
 	}
 }
@@ -150,7 +151,7 @@ func TestNewStateGraph(t *testing.T) {
 		PermitReentry(TestTriggerY)
 
 	info := sm.GetInfo()
-	sg := NewStateGraph(info)
+	sg := graph.NewStateGraph(info)
 
 	if sg == nil {
 		t.Fatal("expected non-nil StateGraph")
@@ -161,7 +162,7 @@ func TestNewStateGraph(t *testing.T) {
 }
 
 func TestUmlDotGraphStyle(t *testing.T) {
-	style := NewUmlDotGraphStyle()
+	style := graph.NewUmlDotGraphStyle()
 
 	prefix := style.GetPrefix()
 	if !strings.Contains(prefix, "digraph") {
@@ -177,9 +178,9 @@ func TestMermaidGraphStyle(t *testing.T) {
 	sm.Configure(TestStateA).Permit(TestTriggerX, TestStateB)
 
 	info := sm.GetInfo()
-	sg := NewStateGraph(info)
-	direction := TopToBottom
-	style := NewMermaidGraphStyle(sg, &direction)
+	sg := graph.NewStateGraph(info)
+	direction := graph.TopToBottom
+	style := graph.NewMermaidGraphStyle(sg, &direction)
 
 	prefix := style.GetPrefix()
 	if !strings.Contains(prefix, "stateDiagram-v2") {
@@ -199,9 +200,9 @@ func TestEscapeLabel(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		result := escapeLabel(tc.input)
+		result := graph.EscapeLabel(tc.input)
 		if result != tc.expected {
-			t.Errorf("escapeLabel(%q) = %q, expected %q", tc.input, result, tc.expected)
+			t.Errorf("EscapeLabel(%q) = %q, expected %q", tc.input, result, tc.expected)
 		}
 	}
 }
@@ -218,28 +219,28 @@ func TestSanitizeStateName(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		result := sanitizeStateName(tc.input)
+		result := graph.SanitizeStateName(tc.input)
 		if result != tc.expected {
-			t.Errorf("sanitizeStateName(%q) = %q, expected %q", tc.input, result, tc.expected)
+			t.Errorf("SanitizeStateName(%q) = %q, expected %q", tc.input, result, tc.expected)
 		}
 	}
 }
 
 func TestGetDirectionCode(t *testing.T) {
 	tests := []struct {
-		direction MermaidGraphDirection
+		direction graph.MermaidGraphDirection
 		expected  string
 	}{
-		{TopToBottom, "TB"},
-		{BottomToTop, "BT"},
-		{LeftToRight, "LR"},
-		{RightToLeft, "RL"},
+		{graph.TopToBottom, "TB"},
+		{graph.BottomToTop, "BT"},
+		{graph.LeftToRight, "LR"},
+		{graph.RightToLeft, "RL"},
 	}
 
 	for _, tc := range tests {
-		result := getDirectionCode(tc.direction)
+		result := graph.GetDirectionCode(tc.direction)
 		if result != tc.expected {
-			t.Errorf("getDirectionCode(%v) = %q, expected %q", tc.direction, result, tc.expected)
+			t.Errorf("GetDirectionCode(%v) = %q, expected %q", tc.direction, result, tc.expected)
 		}
 	}
 }
@@ -253,7 +254,7 @@ func TestDotGraph_SimpleTransition(t *testing.T) {
 	sm.Configure(TestStateA).Permit(TestTriggerX, TestStateB)
 	sm.Configure(TestStateB)
 
-	dotGraph := UmlDotGraph(sm.GetInfo())
+	dotGraph := graph.UmlDotGraph(sm.GetInfo())
 
 	// Check contains required elements (order may vary due to map iteration)
 	if !strings.Contains(dotGraph, "digraph {") {
@@ -284,7 +285,7 @@ func TestDotGraph_TwoSimpleTransitions(t *testing.T) {
 	sm.Configure(TestStateB)
 	sm.Configure(TestStateC)
 
-	dotGraph := UmlDotGraph(sm.GetInfo())
+	dotGraph := graph.UmlDotGraph(sm.GetInfo())
 
 	// Check contains required elements (order may vary due to map iteration)
 	if !strings.Contains(dotGraph, `"A" [label="A"]`) {
@@ -311,7 +312,7 @@ func TestDotGraph_WhenDiscriminatedByAnonymousGuard(t *testing.T) {
 	sm.Configure(TestStateA).PermitIf(TestTriggerX, TestStateB, anonymousGuard)
 	sm.Configure(TestStateB)
 
-	dotGraph := UmlDotGraph(sm.GetInfo())
+	dotGraph := graph.UmlDotGraph(sm.GetInfo())
 
 	// Check contains required elements (order may vary due to map iteration)
 	if !strings.Contains(dotGraph, `"A" [label="A"]`) {
@@ -335,7 +336,7 @@ func TestDotGraph_WhenDiscriminatedByAnonymousGuardWithDescription(t *testing.T)
 	sm.Configure(TestStateA).PermitIf(TestTriggerX, TestStateB, anonymousGuard, "description")
 	sm.Configure(TestStateB)
 
-	dotGraph := UmlDotGraph(sm.GetInfo())
+	dotGraph := graph.UmlDotGraph(sm.GetInfo())
 
 	// Check contains required elements (order may vary due to map iteration)
 	if !strings.Contains(dotGraph, `"A" [label="A"]`) {
@@ -356,7 +357,7 @@ func TestDotGraph_DestinationStateIsDynamic(t *testing.T) {
 	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
 	sm.Configure(TestStateA).PermitDynamic(TestTriggerX, func() TestState { return TestStateB })
 
-	dotGraph := UmlDotGraph(sm.GetInfo())
+	dotGraph := graph.UmlDotGraph(sm.GetInfo())
 
 	// Check that decision node is created
 	if !strings.Contains(dotGraph, "Decision1") {
@@ -381,7 +382,7 @@ func TestDotGraph_OnEntryWithAnonymousActionAndDescription(t *testing.T) {
 		},
 	)
 
-	dotGraph := UmlDotGraph(sm.GetInfo())
+	dotGraph := graph.UmlDotGraph(sm.GetInfo())
 
 	// Check that entry action appears (may use default description)
 	if !strings.Contains(dotGraph, "entry /") {
@@ -397,7 +398,7 @@ func TestDotGraph_TransitionWithIgnore(t *testing.T) {
 		Permit(TestTriggerX, TestStateB)
 	sm.Configure(TestStateB)
 
-	dotGraph := UmlDotGraph(sm.GetInfo())
+	dotGraph := graph.UmlDotGraph(sm.GetInfo())
 
 	// Should contain transition A->B for X
 	if !strings.Contains(dotGraph, `"A" -> "B"`) {
@@ -419,7 +420,7 @@ func TestDotGraph_TransitionWithIgnoreAndEntry(t *testing.T) {
 		OnEntry(func(ctx context.Context, tr stateless.Transition[TestState, TestTrigger]) error { return nil }).
 		PermitReentry(TestTriggerZ)
 
-	dotGraph := UmlDotGraph(sm.GetInfo())
+	dotGraph := graph.UmlDotGraph(sm.GetInfo())
 
 	// Should contain reentry B->B for Z
 	if !strings.Contains(dotGraph, `"B" -> "B"`) {
@@ -434,7 +435,7 @@ func TestDotGraph_InternalTransitionDoesNotShowEntryExitFunctions(t *testing.T) 
 		OnExit(func(ctx context.Context, tr stateless.Transition[TestState, TestTrigger]) error { return nil }).
 		InternalTransition(TestTriggerX, func(ctx context.Context, tr stateless.Transition[TestState, TestTrigger]) error { return nil })
 
-	dotGraph := UmlDotGraph(sm.GetInfo())
+	dotGraph := graph.UmlDotGraph(sm.GetInfo())
 
 	// Should contain self-loop for internal transition
 	if !strings.Contains(dotGraph, `"A" -> "A"`) {
@@ -454,7 +455,7 @@ func TestDotGraph_InitialStateNotChangedAfterTriggerFired(t *testing.T) {
 	// Fire the trigger
 	_ = sm.Fire(TestTriggerX, nil)
 
-	dotGraph := UmlDotGraph(sm.GetInfo())
+	dotGraph := graph.UmlDotGraph(sm.GetInfo())
 
 	// Initial state in graph should still be A
 	if !strings.Contains(dotGraph, `init -> "A"`) {
@@ -471,7 +472,7 @@ func TestDotGraph_UmlWithSubstate(t *testing.T) {
 	sm.Configure(TestStateC).SubstateOf(TestStateD)
 	sm.Configure(TestStateD)
 
-	dotGraph := UmlDotGraph(sm.GetInfo())
+	dotGraph := graph.UmlDotGraph(sm.GetInfo())
 
 	// Should contain subgraph cluster for D
 	if !strings.Contains(dotGraph, "subgraph") {
@@ -493,7 +494,7 @@ func TestDotGraph_UmlWithDynamic(t *testing.T) {
 	sm.Configure(TestStateB)
 	sm.Configure(TestStateC)
 
-	dotGraph := UmlDotGraph(sm.GetInfo())
+	dotGraph := graph.UmlDotGraph(sm.GetInfo())
 
 	// Should contain decision node
 	if !strings.Contains(dotGraph, "Decision1") {
@@ -517,7 +518,7 @@ func TestDotGraph_ReentrantTransitionShowsEntryAction(t *testing.T) {
 		}).
 		PermitReentry(TestTriggerX)
 
-	dotGraph := UmlDotGraph(sm.GetInfo())
+	dotGraph := graph.UmlDotGraph(sm.GetInfo())
 
 	// Should contain B->B reentry
 	if !strings.Contains(dotGraph, `"B" -> "B"`) {
@@ -534,7 +535,7 @@ func TestDotGraph_SimpleTransitionWithEscaping(t *testing.T) {
 	sm.Configure(state1).Permit(trigger1, state2)
 	sm.Configure(state2)
 
-	dotGraph := UmlDotGraph(sm.GetInfo())
+	dotGraph := graph.UmlDotGraph(sm.GetInfo())
 
 	// Should properly escape special characters
 	if !strings.Contains(dotGraph, `\\`) {
@@ -551,7 +552,7 @@ func TestMermaidGraph_InitialTransition(t *testing.T) {
 	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
 	sm.Configure(TestStateA) // Configure state A so it appears in the graph
 
-	mermaidGraph := MermaidGraph(sm.GetInfo(), nil)
+	mermaidGraph := graph.MermaidGraph(sm.GetInfo(), nil)
 
 	expected := "stateDiagram-v2\n[*] --> A"
 	if mermaidGraph != expected {
@@ -564,7 +565,7 @@ func TestMermaidGraph_SimpleTransition(t *testing.T) {
 	sm.Configure(TestStateA).Permit(TestTriggerX, TestStateB)
 	sm.Configure(TestStateB)
 
-	mermaidGraph := MermaidGraph(sm.GetInfo(), nil)
+	mermaidGraph := graph.MermaidGraph(sm.GetInfo(), nil)
 
 	// Should contain initial transition
 	if !strings.Contains(mermaidGraph, "[*] --> A") {
@@ -581,8 +582,8 @@ func TestMermaidGraph_SimpleTransition_LeftToRight(t *testing.T) {
 	sm.Configure(TestStateA).Permit(TestTriggerX, TestStateB)
 	sm.Configure(TestStateB)
 
-	direction := LeftToRight
-	mermaidGraph := MermaidGraph(sm.GetInfo(), &direction)
+	direction := graph.LeftToRight
+	mermaidGraph := graph.MermaidGraph(sm.GetInfo(), &direction)
 
 	// Should contain direction
 	if !strings.Contains(mermaidGraph, "direction LR") {
@@ -600,7 +601,7 @@ func TestMermaidGraph_TwoSimpleTransitions(t *testing.T) {
 	sm.Configure(TestStateB).Permit(TestTriggerY, TestStateC)
 	sm.Configure(TestStateC)
 
-	mermaidGraph := MermaidGraph(sm.GetInfo(), nil)
+	mermaidGraph := graph.MermaidGraph(sm.GetInfo(), nil)
 
 	// Should contain initial transition
 	if !strings.Contains(mermaidGraph, "[*] --> A") {
@@ -621,7 +622,7 @@ func TestMermaidGraph_WhenDiscriminatedByAnonymousGuard(t *testing.T) {
 	sm.Configure(TestStateA).PermitIf(TestTriggerX, TestStateB, func() bool { return true }, "anonymousGuard")
 	sm.Configure(TestStateB)
 
-	mermaidGraph := MermaidGraph(sm.GetInfo(), nil)
+	mermaidGraph := graph.MermaidGraph(sm.GetInfo(), nil)
 
 	// Should contain transition with guard
 	if !strings.Contains(mermaidGraph, "A --> B : X [anonymousGuard]") {
@@ -634,7 +635,7 @@ func TestMermaidGraph_WhenDiscriminatedByAnonymousGuardWithDescription(t *testin
 	sm.Configure(TestStateA).PermitIf(TestTriggerX, TestStateB, func() bool { return true }, "description")
 	sm.Configure(TestStateB)
 
-	mermaidGraph := MermaidGraph(sm.GetInfo(), nil)
+	mermaidGraph := graph.MermaidGraph(sm.GetInfo(), nil)
 
 	// Should contain transition with guard description
 	if !strings.Contains(mermaidGraph, "A --> B : X [description]") {
@@ -649,7 +650,7 @@ func TestMermaidGraph_DestinationStateIsDynamic(t *testing.T) {
 	})
 	sm.Configure(TestStateB)
 
-	mermaidGraph := MermaidGraph(sm.GetInfo(), nil)
+	mermaidGraph := graph.MermaidGraph(sm.GetInfo(), nil)
 
 	// Should contain decision node
 	if !strings.Contains(mermaidGraph, "state Decision1 <<choice>>") {
@@ -668,7 +669,7 @@ func TestMermaidGraph_DestinationStateIsDynamicWithPossibleDestinations(t *testi
 	sm.Configure(TestStateB)
 	sm.Configure(TestStateC)
 
-	mermaidGraph := MermaidGraph(sm.GetInfo(), nil)
+	mermaidGraph := graph.MermaidGraph(sm.GetInfo(), nil)
 
 	// Should contain decision node
 	if !strings.Contains(mermaidGraph, "Decision1 <<choice>>") {
@@ -683,7 +684,7 @@ func TestMermaidGraph_TransitionWithIgnore(t *testing.T) {
 		Ignore(TestTriggerY)
 	sm.Configure(TestStateB)
 
-	mermaidGraph := MermaidGraph(sm.GetInfo(), nil)
+	mermaidGraph := graph.MermaidGraph(sm.GetInfo(), nil)
 
 	// Should contain A -> B transition
 	if !strings.Contains(mermaidGraph, "A --> B : X") {
@@ -702,7 +703,7 @@ func TestMermaidGraph_WithSubstate(t *testing.T) {
 	sm.Configure(TestStateC).SubstateOf(TestStateD)
 	sm.Configure(TestStateD)
 
-	mermaidGraph := MermaidGraph(sm.GetInfo(), nil)
+	mermaidGraph := graph.MermaidGraph(sm.GetInfo(), nil)
 
 	// Should contain superstate definition
 	if !strings.Contains(mermaidGraph, "state D {") {
@@ -726,7 +727,7 @@ func TestMermaidGraph_StateNamesWithSpacesAreAliased(t *testing.T) {
 	sm.Configure(stateA).Permit(triggerX, stateB)
 	sm.Configure(stateB)
 
-	mermaidGraph := MermaidGraph(sm.GetInfo(), nil)
+	mermaidGraph := graph.MermaidGraph(sm.GetInfo(), nil)
 
 	// States with spaces should be sanitized and aliased
 	// The sanitized name should be used in transitions
@@ -744,7 +745,7 @@ func TestMermaidGraph_OnEntryWithNamedDelegateAction(t *testing.T) {
 	sm.Configure(TestStateA).Permit(TestTriggerX, TestStateB)
 	sm.Configure(TestStateB).OnEntry(func(ctx context.Context, tr stateless.Transition[TestState, TestTrigger]) error { return nil })
 
-	mermaidGraph := MermaidGraph(sm.GetInfo(), nil)
+	mermaidGraph := graph.MermaidGraph(sm.GetInfo(), nil)
 
 	// Should contain initial transition
 	if !strings.Contains(mermaidGraph, "[*] --> A") {
@@ -760,7 +761,7 @@ func TestMermaidGraph_InternalTransition(t *testing.T) {
 	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
 	sm.Configure(TestStateA).InternalTransition(TestTriggerX, func(ctx context.Context, tr stateless.Transition[TestState, TestTrigger]) error { return nil })
 
-	mermaidGraph := MermaidGraph(sm.GetInfo(), nil)
+	mermaidGraph := graph.MermaidGraph(sm.GetInfo(), nil)
 
 	// Should contain self-loop for internal transition
 	if !strings.Contains(mermaidGraph, "A --> A : X") {
@@ -779,7 +780,7 @@ func TestMermaidGraph_OnEntryWithTriggerCheck(t *testing.T) {
 		return nil
 	})
 
-	mermaidGraph := MermaidGraph(sm.GetInfo(), nil)
+	mermaidGraph := graph.MermaidGraph(sm.GetInfo(), nil)
 
 	// Should contain transition from A to B with trigger X
 	if !strings.Contains(mermaidGraph, "A --> B : X") {

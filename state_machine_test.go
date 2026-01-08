@@ -1,4 +1,4 @@
-package stateless
+package stateless_test
 
 import (
 	"context"
@@ -6,6 +6,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/atlekbai/stateless"
 )
 
 // Test state and trigger types.
@@ -56,14 +58,14 @@ func (t Trigger) String() string {
 // Basic tests
 
 func TestNewStateMachine(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	if sm.State() != StateA {
 		t.Errorf("expected initial state to be StateA, got %v", sm.State())
 	}
 }
 
 func TestSimpleTransition(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).Permit(TriggerX, StateB)
 
 	if err := sm.Fire(TriggerX, nil); err != nil {
@@ -76,7 +78,7 @@ func TestSimpleTransition(t *testing.T) {
 }
 
 func TestMultipleTransitions(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).Permit(TriggerX, StateB)
 	sm.Configure(StateB).Permit(TriggerY, StateC)
 	sm.Configure(StateC).Permit(TriggerZ, StateA)
@@ -107,7 +109,7 @@ func TestMultipleTransitions(t *testing.T) {
 }
 
 func TestInvalidTransition(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).Permit(TriggerX, StateB)
 
 	// TriggerY is not configured for StateA
@@ -116,7 +118,7 @@ func TestInvalidTransition(t *testing.T) {
 		t.Error("expected error for invalid transition")
 	}
 
-	var invalidTransitionErr *InvalidTransitionError
+	var invalidTransitionErr *stateless.InvalidTransitionError
 	if !errors.As(err, &invalidTransitionErr) {
 		t.Errorf("expected InvalidTransitionError, got %T", err)
 	}
@@ -126,7 +128,7 @@ func TestInvalidTransition(t *testing.T) {
 
 func TestPermitIf_GuardPasses(t *testing.T) {
 	guardCalled := false
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).PermitIf(TriggerX, StateB, func() bool {
 		guardCalled = true
 		return true
@@ -145,7 +147,7 @@ func TestPermitIf_GuardPasses(t *testing.T) {
 }
 
 func TestPermitIf_GuardFails(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).PermitIf(TriggerX, StateB, func() bool {
 		return false
 	}, "test guard")
@@ -161,7 +163,7 @@ func TestPermitIf_GuardFails(t *testing.T) {
 }
 
 func TestMultipleGuards(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	// First guard passes -> StateB
 	// Second guard fails -> StateC
@@ -182,9 +184,9 @@ func TestMultipleGuards(t *testing.T) {
 
 func TestOnEntry(t *testing.T) {
 	entryCount := 0
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).Permit(TriggerX, StateB)
-	sm.Configure(StateB).OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
+	sm.Configure(StateB).OnEntry(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 		entryCount++
 		return nil
 	})
@@ -200,10 +202,10 @@ func TestOnEntry(t *testing.T) {
 
 func TestOnExit(t *testing.T) {
 	exitCount := 0
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).
 		Permit(TriggerX, StateB).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnExit(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			exitCount++
 			return nil
 		})
@@ -218,11 +220,11 @@ func TestOnExit(t *testing.T) {
 }
 
 func TestOnEntryWithTransition(t *testing.T) {
-	var receivedTransition Transition[State, Trigger]
-	sm := NewStateMachine[State, Trigger](StateA)
+	var receivedTransition stateless.Transition[State, Trigger]
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).Permit(TriggerX, StateB)
 
-	sm.Configure(StateB).OnEntry(func(ctx context.Context, transition Transition[State, Trigger]) error {
+	sm.Configure(StateB).OnEntry(func(ctx context.Context, transition stateless.Transition[State, Trigger]) error {
 		receivedTransition = transition
 		return nil
 	})
@@ -248,12 +250,12 @@ func TestOnEntryCheckTrigger(t *testing.T) {
 	entryFromXCount := 0
 	entryFromYCount := 0
 
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).Permit(TriggerX, StateB)
 
 	sm.Configure(StateB).
 		Permit(TriggerY, StateC).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnEntry(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			if tr.Trigger == TriggerX {
 				entryFromXCount++
 			} else if tr.Trigger == TriggerY {
@@ -295,11 +297,11 @@ func TestPermitReentry(t *testing.T) {
 	entryCount := 0
 	exitCount := 0
 
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).
 		PermitReentry(TriggerX).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error { entryCount++; return nil }).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error { exitCount++; return nil })
+		OnEntry(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { entryCount++; return nil }).
+		OnExit(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { exitCount++; return nil })
 
 	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -319,7 +321,7 @@ func TestPermitReentry(t *testing.T) {
 // Ignore tests
 
 func TestIgnore(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).
 		Permit(TriggerX, StateB).
 		Ignore(TriggerY)
@@ -335,7 +337,7 @@ func TestIgnore(t *testing.T) {
 
 func TestIgnoreIf(t *testing.T) {
 	shouldIgnore := true
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).
 		IgnoreIf(TriggerX, func() bool { return shouldIgnore })
 
@@ -362,14 +364,14 @@ func TestInternalTransition(t *testing.T) {
 	entryCount := 0
 	exitCount := 0
 
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).
-		InternalTransition(TriggerX, func(ctx context.Context, tr Transition[State, Trigger]) error {
+		InternalTransition(TriggerX, func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			actionCount++
 			return nil
 		}).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error { entryCount++; return nil }).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error { exitCount++; return nil })
+		OnEntry(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { entryCount++; return nil }).
+		OnExit(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { exitCount++; return nil })
 
 	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -392,9 +394,9 @@ func TestInternalTransition(t *testing.T) {
 // Internal transition tests (ported from .NET Stateless)
 
 func TestInternalTransition_StayInSameStateOneState(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).
-		InternalTransition(TriggerX, func(ctx context.Context, tr Transition[State, Trigger]) error { return nil })
+		InternalTransition(TriggerX, func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { return nil })
 
 	if sm.State() != StateA {
 		t.Errorf("expected StateA, got %v", sm.State())
@@ -408,14 +410,14 @@ func TestInternalTransition_StayInSameStateOneState(t *testing.T) {
 }
 
 func TestInternalTransition_StayInSameStateTwoStates(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	sm.Configure(StateA).
-		InternalTransition(TriggerX, func(ctx context.Context, tr Transition[State, Trigger]) error { return nil }).
+		InternalTransition(TriggerX, func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { return nil }).
 		Permit(TriggerY, StateB)
 
 	sm.Configure(StateB).
-		InternalTransition(TriggerX, func(ctx context.Context, tr Transition[State, Trigger]) error { return nil }).
+		InternalTransition(TriggerX, func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { return nil }).
 		Permit(TriggerY, StateA)
 
 	// This should not cause any state changes
@@ -447,11 +449,11 @@ func TestInternalTransition_StayInSameStateTwoStates(t *testing.T) {
 }
 
 func TestInternalTransition_StayInSameSubStateTransitionInSuperstate(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateB)
+	sm := stateless.NewStateMachine[State, Trigger](StateB)
 
 	sm.Configure(StateA).
-		InternalTransition(TriggerX, func(ctx context.Context, tr Transition[State, Trigger]) error { return nil }).
-		InternalTransition(TriggerY, func(ctx context.Context, tr Transition[State, Trigger]) error { return nil })
+		InternalTransition(TriggerX, func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { return nil }).
+		InternalTransition(TriggerY, func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { return nil })
 
 	sm.Configure(StateB).
 		SubstateOf(StateA)
@@ -475,14 +477,14 @@ func TestInternalTransition_StayInSameSubStateTransitionInSuperstate(t *testing.
 }
 
 func TestInternalTransition_StayInSameSubStateTransitionInSubstate(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateB)
+	sm := stateless.NewStateMachine[State, Trigger](StateB)
 
 	sm.Configure(StateA)
 
 	sm.Configure(StateB).
 		SubstateOf(StateA).
-		InternalTransition(TriggerX, func(ctx context.Context, tr Transition[State, Trigger]) error { return nil }).
-		InternalTransition(TriggerY, func(ctx context.Context, tr Transition[State, Trigger]) error { return nil })
+		InternalTransition(TriggerX, func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { return nil }).
+		InternalTransition(TriggerY, func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { return nil })
 
 	// This should not cause any state changes
 	if sm.State() != StateB {
@@ -504,9 +506,9 @@ func TestInternalTransition_StayInSameSubStateTransitionInSubstate(t *testing.T)
 
 func TestInternalTransitionIf_ShouldBeReflectedInPermittedTriggers(t *testing.T) {
 	isPermitted := true
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).
-		InternalTransitionIf(TriggerX, func() bool { return isPermitted }, func(ctx context.Context, tr Transition[State, Trigger]) error { return nil })
+		InternalTransitionIf(TriggerX, func() bool { return isPermitted }, func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { return nil })
 
 	triggers := sm.GetPermittedTriggers(nil)
 	if len(triggers) != 1 {
@@ -523,14 +525,14 @@ func TestInternalTransitionIf_ShouldBeReflectedInPermittedTriggers(t *testing.T)
 func TestInternalTransition_HandledOnlyOnceInSuper(t *testing.T) {
 	handledIn := StateC
 
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	sm.Configure(StateA).
-		InternalTransition(TriggerX, func(ctx context.Context, tr Transition[State, Trigger]) error { handledIn = StateA; return nil })
+		InternalTransition(TriggerX, func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { handledIn = StateA; return nil })
 
 	sm.Configure(StateB).
 		SubstateOf(StateA).
-		InternalTransition(TriggerX, func(ctx context.Context, tr Transition[State, Trigger]) error { handledIn = StateB; return nil })
+		InternalTransition(TriggerX, func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { handledIn = StateB; return nil })
 
 	// The state machine is in state A. It should only be handled in State A
 	if err := sm.Fire(TriggerX, nil); err != nil {
@@ -545,14 +547,14 @@ func TestInternalTransition_HandledOnlyOnceInSuper(t *testing.T) {
 func TestInternalTransition_HandledOnlyOnceInSub(t *testing.T) {
 	handledIn := StateC
 
-	sm := NewStateMachine[State, Trigger](StateB)
+	sm := stateless.NewStateMachine[State, Trigger](StateB)
 
 	sm.Configure(StateA).
-		InternalTransition(TriggerX, func(ctx context.Context, tr Transition[State, Trigger]) error { handledIn = StateA; return nil })
+		InternalTransition(TriggerX, func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { handledIn = StateA; return nil })
 
 	sm.Configure(StateB).
 		SubstateOf(StateA).
-		InternalTransition(TriggerX, func(ctx context.Context, tr Transition[State, Trigger]) error { handledIn = StateB; return nil })
+		InternalTransition(TriggerX, func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { handledIn = StateB; return nil })
 
 	// The state machine is in state B. It should only be handled in State B
 	if err := sm.Fire(TriggerX, nil); err != nil {
@@ -567,11 +569,11 @@ func TestInternalTransition_HandledOnlyOnceInSub(t *testing.T) {
 func TestInternalTransition_OnlyOneHandlerExecuted(t *testing.T) {
 	handled := 0
 
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	sm.Configure(StateA).
-		InternalTransition(TriggerX, func(ctx context.Context, tr Transition[State, Trigger]) error { handled++; return nil }).
-		InternalTransition(TriggerY, func(ctx context.Context, tr Transition[State, Trigger]) error { handled++; return nil })
+		InternalTransition(TriggerX, func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { handled++; return nil }).
+		InternalTransition(TriggerY, func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { handled++; return nil })
 
 	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -593,11 +595,11 @@ func TestInternalTransitionWithTypedArgs(t *testing.T) {
 		Value int
 	}
 
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	var receivedValue int
 
 	sm.Configure(StateA).InternalTransition(TriggerX,
-		func(ctx context.Context, trans Transition[State, Trigger]) error {
+		func(ctx context.Context, trans stateless.Transition[State, Trigger]) error {
 			if args, ok := trans.Args.(InternalArgs); ok {
 				receivedValue = args.Value
 			}
@@ -621,7 +623,7 @@ func TestInternalTransitionWithTypedArgs(t *testing.T) {
 
 func TestPermitDynamic(t *testing.T) {
 	destState := StateB
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).PermitDynamic(TriggerX, func() State {
 		return destState
 	})
@@ -634,7 +636,7 @@ func TestPermitDynamic(t *testing.T) {
 	}
 
 	// Reset and try with different destination
-	sm = NewStateMachine[State, Trigger](StateA)
+	sm = stateless.NewStateMachine[State, Trigger](StateA)
 	destState = StateC
 	sm.Configure(StateA).PermitDynamic(TriggerX, func() State {
 		return destState
@@ -649,7 +651,7 @@ func TestPermitDynamic(t *testing.T) {
 }
 
 func TestPermitDynamicWithArgs(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).PermitDynamicArgs(TriggerX, func(args any) State {
 		if state, ok := args.(State); ok {
 			return state
@@ -668,7 +670,7 @@ func TestPermitDynamicWithArgs(t *testing.T) {
 // Hierarchical state tests
 
 func TestSubstateOf(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	// StateB is a superstate, StateC is a substate
 	sm.Configure(StateB).Permit(TriggerX, StateA)
@@ -697,7 +699,7 @@ func TestSubstateOf(t *testing.T) {
 }
 
 func TestIsInState_WithSubstates(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateC)
+	sm := stateless.NewStateMachine[State, Trigger](StateC)
 	sm.Configure(StateB)
 	sm.Configure(StateC).SubstateOf(StateB)
 
@@ -718,7 +720,7 @@ func TestActivateDeactivate(t *testing.T) {
 	activateCount := 0
 	deactivateCount := 0
 
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).
 		OnActivate(func(ctx context.Context) error { activateCount++; return nil }).
 		OnDeactivate(func(ctx context.Context) error { deactivateCount++; return nil })
@@ -749,12 +751,12 @@ func TestActivateDeactivate(t *testing.T) {
 // Event tests
 
 func TestOnTransitioned(t *testing.T) {
-	var transitions []Transition[State, Trigger]
-	sm := NewStateMachine[State, Trigger](StateA)
+	var transitions []stateless.Transition[State, Trigger]
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).Permit(TriggerX, StateB)
 	sm.Configure(StateB).Permit(TriggerY, StateC)
 
-	sm.OnTransitioned(func(transition Transition[State, Trigger]) {
+	sm.OnTransitioned(func(transition stateless.Transition[State, Trigger]) {
 		transitions = append(transitions, transition)
 	})
 
@@ -772,10 +774,10 @@ func TestOnTransitioned(t *testing.T) {
 
 func TestOnTransitionCompleted(t *testing.T) {
 	completedCount := 0
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).Permit(TriggerX, StateB)
 
-	sm.OnTransitionCompleted(func(transition Transition[State, Trigger]) {
+	sm.OnTransitionCompleted(func(transition stateless.Transition[State, Trigger]) {
 		completedCount++
 	})
 
@@ -792,14 +794,14 @@ func TestUnregisterAllCallbacks(t *testing.T) {
 	transitionCount := 0
 	completedCount := 0
 
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).Permit(TriggerX, StateB)
 	sm.Configure(StateB).Permit(TriggerY, StateA)
 
-	sm.OnTransitioned(func(transition Transition[State, Trigger]) {
+	sm.OnTransitioned(func(transition stateless.Transition[State, Trigger]) {
 		transitionCount++
 	})
-	sm.OnTransitionCompleted(func(transition Transition[State, Trigger]) {
+	sm.OnTransitionCompleted(func(transition stateless.Transition[State, Trigger]) {
 		completedCount++
 	})
 
@@ -834,7 +836,7 @@ func TestUnregisterAllCallbacks(t *testing.T) {
 func TestExternalStorage(t *testing.T) {
 	externalState := StateA
 
-	sm := NewStateMachineWithExternalStorage[State, Trigger](
+	sm := stateless.NewStateMachineWithExternalStorage[State, Trigger](
 		func() State { return externalState },
 		func(s State) { externalState = s },
 	)
@@ -859,7 +861,7 @@ func TestOnUnhandledTrigger(t *testing.T) {
 	var unhandledTrigger Trigger
 	var unhandledGuards []string
 
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.OnUnhandledTrigger(func(state State, trigger Trigger, unmetGuards []string) {
 		unhandledState = state
 		unhandledTrigger = trigger
@@ -885,7 +887,7 @@ func TestOnUnhandledTrigger(t *testing.T) {
 // CanFire tests
 
 func TestCanFire(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).
 		Permit(TriggerX, StateB).
 		Ignore(TriggerY)
@@ -903,7 +905,7 @@ func TestCanFire(t *testing.T) {
 
 func TestCanFire_WithGuard(t *testing.T) {
 	guardResult := true
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).PermitIf(TriggerX, StateB, func() bool { return guardResult })
 
 	if !sm.CanFire(TriggerX, nil) {
@@ -919,7 +921,7 @@ func TestCanFire_WithGuard(t *testing.T) {
 // GetPermittedTriggers tests
 
 func TestGetPermittedTriggers(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).
 		Permit(TriggerX, StateB).
 		Permit(TriggerY, StateC)
@@ -952,12 +954,12 @@ func TestGetPermittedTriggers(t *testing.T) {
 // Firing mode tests
 
 func TestFiringModeQueued(t *testing.T) {
-	sm := NewStateMachineWithMode[State, Trigger](StateA, FiringQueued)
-	transitions := make([]Transition[State, Trigger], 0)
+	sm := stateless.NewStateMachineWithMode[State, Trigger](StateA, stateless.FiringQueued)
+	transitions := make([]stateless.Transition[State, Trigger], 0)
 
 	sm.Configure(StateA).
 		Permit(TriggerX, StateB).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnExit(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			// Fire another trigger from within an exit action
 			go func() {
 				sm.Fire(TriggerY, nil)
@@ -967,7 +969,7 @@ func TestFiringModeQueued(t *testing.T) {
 	sm.Configure(StateB).
 		Permit(TriggerY, StateC)
 
-	sm.OnTransitioned(func(transition Transition[State, Trigger]) {
+	sm.OnTransitioned(func(transition stateless.Transition[State, Trigger]) {
 		transitions = append(transitions, transition)
 	})
 
@@ -986,7 +988,7 @@ func TestFiringModeQueued(t *testing.T) {
 // Context cancellation test
 
 func TestFireCtx_Cancellation(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).Permit(TriggerX, StateB)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -1004,7 +1006,7 @@ func TestFireCtx_Cancellation(t *testing.T) {
 // Concurrent access test
 
 func TestConcurrentFire(t *testing.T) {
-	sm := NewStateMachineWithMode[State, Trigger](StateA, FiringQueued)
+	sm := stateless.NewStateMachineWithMode[State, Trigger](StateA, stateless.FiringQueued)
 	sm.Configure(StateA).
 		Permit(TriggerX, StateB).
 		PermitReentry(TriggerY)
@@ -1028,28 +1030,28 @@ func TestConcurrentFire(t *testing.T) {
 
 func TestImmediateEntryAProcessedBeforeEnterB(t *testing.T) {
 	record := []string{}
-	sm := NewStateMachineWithMode[State, Trigger](StateA, FiringImmediate)
+	sm := stateless.NewStateMachineWithMode[State, Trigger](StateA, stateless.FiringImmediate)
 
 	sm.Configure(StateA).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnEntry(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			record = append(record, "EnterA")
 			return nil
 		}).
 		Permit(TriggerX, StateB).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnExit(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			record = append(record, "ExitA")
 			return nil
 		})
 
 	sm.Configure(StateB).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnEntry(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			// Fire this before finishing processing the entry action
 			sm.Fire(TriggerY, nil)
 			record = append(record, "EnterB")
 			return nil
 		}).
 		Permit(TriggerY, StateA).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnExit(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			record = append(record, "ExitB")
 			return nil
 		})
@@ -1072,28 +1074,28 @@ func TestImmediateEntryAProcessedBeforeEnterB(t *testing.T) {
 
 func TestQueuedEntryAProcessedAfterEnterB(t *testing.T) {
 	record := []string{}
-	sm := NewStateMachineWithMode[State, Trigger](StateA, FiringQueued)
+	sm := stateless.NewStateMachineWithMode[State, Trigger](StateA, stateless.FiringQueued)
 
 	sm.Configure(StateA).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnEntry(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			record = append(record, "EnterA")
 			return nil
 		}).
 		Permit(TriggerX, StateB).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnExit(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			record = append(record, "ExitA")
 			return nil
 		})
 
 	sm.Configure(StateB).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnEntry(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			// Fire this before finishing processing the entry action
 			sm.Fire(TriggerY, nil)
 			record = append(record, "EnterB")
 			return nil
 		}).
 		Permit(TriggerY, StateA).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnExit(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			record = append(record, "ExitB")
 			return nil
 		})
@@ -1116,39 +1118,39 @@ func TestQueuedEntryAProcessedAfterEnterB(t *testing.T) {
 
 func TestImmediateFiringOnEntryEndsUpInCorrectState(t *testing.T) {
 	record := []string{}
-	sm := NewStateMachineWithMode[State, Trigger](StateA, FiringImmediate)
+	sm := stateless.NewStateMachineWithMode[State, Trigger](StateA, stateless.FiringImmediate)
 
 	sm.Configure(StateA).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnEntry(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			record = append(record, "EnterA")
 			return nil
 		}).
 		Permit(TriggerX, StateB).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnExit(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			record = append(record, "ExitA")
 			return nil
 		})
 
 	sm.Configure(StateB).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnEntry(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			record = append(record, "EnterB")
 			// Fire this before finishing processing the entry action
 			sm.Fire(TriggerX, nil)
 			return nil
 		}).
 		Permit(TriggerX, StateC).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnExit(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			record = append(record, "ExitB")
 			return nil
 		})
 
 	sm.Configure(StateC).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnEntry(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			record = append(record, "EnterC")
 			return nil
 		}).
 		Permit(TriggerX, StateA).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnExit(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			record = append(record, "ExitC")
 			return nil
 		})
@@ -1176,10 +1178,10 @@ func TestImmediateFiringOnEntryEndsUpInCorrectState(t *testing.T) {
 // GetInfo test
 
 func TestGetInfo(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).
 		Permit(TriggerX, StateB).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error { return nil })
+		OnEntry(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { return nil })
 	sm.Configure(StateB).
 		Permit(TriggerY, StateA)
 
@@ -1198,9 +1200,9 @@ func TestGetInfo(t *testing.T) {
 
 func TestGetInfo_ShouldReturnEntryAction(t *testing.T) {
 	// ARRANGE
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateB).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error { return nil })
+		OnEntry(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { return nil })
 
 	// ACT
 	stateMachineInfo := sm.GetInfo()
@@ -1218,7 +1220,7 @@ func TestGetInfo_ShouldReturnEntryAction(t *testing.T) {
 // String representation test
 
 func TestStateMachine_String(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	str := sm.String()
 	if str == "" {
 		t.Error("expected non-empty string representation")
@@ -1228,24 +1230,19 @@ func TestStateMachine_String(t *testing.T) {
 // Transition tests
 
 func TestTransition_IsReentry(t *testing.T) {
-	trans := Transition[State, Trigger]{Source: StateA, Destination: StateA, Trigger: TriggerX}
+	trans := stateless.Transition[State, Trigger]{Source: StateA, Destination: StateA, Trigger: TriggerX}
 	if !trans.IsReentry() {
 		t.Error("expected IsReentry to be true for same source and destination")
 	}
 
-	trans2 := Transition[State, Trigger]{Source: StateA, Destination: StateB, Trigger: TriggerX}
+	trans2 := stateless.Transition[State, Trigger]{Source: StateA, Destination: StateB, Trigger: TriggerX}
 	if trans2.IsReentry() {
 		t.Error("expected IsReentry to be false for different source and destination")
 	}
 }
 
 func TestInitialTransition(t *testing.T) {
-	trans := Transition[State, Trigger]{
-		Source:      StateA,
-		Destination: StateB,
-		Trigger:     TriggerX,
-		isInitial:   true,
-	}
+	trans := stateless.NewInitialTransition[State, Trigger](StateA, StateB, TriggerX, nil)
 	if !trans.IsInitial() {
 		t.Error("expected IsInitial to be true for initial transition")
 	}
@@ -1254,7 +1251,7 @@ func TestInitialTransition(t *testing.T) {
 // Initial transition tests (ported from .NET Stateless)
 
 func TestInitialTransition_EntersSubState(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	sm.Configure(StateA).Permit(TriggerX, StateB)
 
@@ -1274,7 +1271,7 @@ func TestInitialTransition_EntersSubState(t *testing.T) {
 }
 
 func TestInitialTransition_EntersSubStateOfSubstate(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	sm.Configure(StateA).Permit(TriggerX, StateB)
 
@@ -1298,7 +1295,7 @@ func TestInitialTransition_EntersSubStateOfSubstate(t *testing.T) {
 }
 
 func TestInitialTransition_DoesNotEnterSubStateOfSubstate(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	sm.Configure(StateA).Permit(TriggerX, StateB)
 
@@ -1321,7 +1318,7 @@ func TestInitialTransition_DoesNotEnterSubStateOfSubstate(t *testing.T) {
 }
 
 func TestInitialTransition_DoNotAllowTransitionToSelf(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	defer func() {
 		if r := recover(); r == nil {
@@ -1334,7 +1331,7 @@ func TestInitialTransition_DoNotAllowTransitionToSelf(t *testing.T) {
 }
 
 func TestInitialTransition_DoNotAllowTransitionToAnotherSuperstate(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	sm.Configure(StateA).Permit(TriggerX, StateB)
 
@@ -1348,7 +1345,7 @@ func TestInitialTransition_DoNotAllowTransitionToAnotherSuperstate(t *testing.T)
 }
 
 func TestInitialTransition_DoNotAllowMoreThanOneInitialTransition(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	sm.Configure(StateA).Permit(TriggerX, StateB)
 
@@ -1367,7 +1364,7 @@ func TestInitialTransition_DoNotAllowMoreThanOneInitialTransition(t *testing.T) 
 
 func TestInitialTransition_WithReentry(t *testing.T) {
 	// X: Exit A => Enter A => Enter B
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	order := 0
 	onEntryStateAfired := 0
@@ -1377,12 +1374,12 @@ func TestInitialTransition_WithReentry(t *testing.T) {
 
 	sm.Configure(StateA).
 		InitialTransition(StateB).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnEntry(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			order++
 			onEntryStateAfired = order
 			return nil
 		}).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnExit(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			order++
 			onExitStateAfired = order
 			return nil
@@ -1391,12 +1388,12 @@ func TestInitialTransition_WithReentry(t *testing.T) {
 
 	sm.Configure(StateB).
 		SubstateOf(StateA).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnEntry(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			order++
 			onEntryStateBfired = order
 			return nil
 		}).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnExit(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			order++
 			onExitStateBfired = order
 			return nil
@@ -1424,14 +1421,14 @@ func TestInitialTransition_WithReentry(t *testing.T) {
 }
 
 func TestInitialTransition_VerifyNotEnterSuperstateWhenDoingInitialTransition(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	sm.Configure(StateA).
 		Permit(TriggerX, StateB)
 
 	sm.Configure(StateB).
 		InitialTransition(StateC).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error { sm.Fire(TriggerY, nil); return nil }).
+		OnEntry(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { sm.Fire(TriggerY, nil); return nil }).
 		Permit(TriggerY, StateD)
 
 	sm.Configure(StateC).
@@ -1448,24 +1445,24 @@ func TestInitialTransition_VerifyNotEnterSuperstateWhenDoingInitialTransition(t 
 }
 
 func TestInitialTransition_SubStateOfSubstateOnEntryCountAndOrder(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	onEntryCount := ""
 
 	sm.Configure(StateA).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error { onEntryCount += "A"; return nil }).
+		OnEntry(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { onEntryCount += "A"; return nil }).
 		Permit(TriggerX, StateB)
 
 	sm.Configure(StateB).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error { onEntryCount += "B"; return nil }).
+		OnEntry(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { onEntryCount += "B"; return nil }).
 		InitialTransition(StateC)
 
 	sm.Configure(StateC).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error { onEntryCount += "C"; return nil }).
+		OnEntry(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { onEntryCount += "C"; return nil }).
 		InitialTransition(StateD).
 		SubstateOf(StateB)
 
 	sm.Configure(StateD).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error { onEntryCount += "D"; return nil }).
+		OnEntry(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { onEntryCount += "D"; return nil }).
 		SubstateOf(StateC)
 
 	if err := sm.Fire(TriggerX, nil); err != nil {
@@ -1488,34 +1485,34 @@ func TestInitialTransition_TransitionEventsOrdering(t *testing.T) {
 	}
 	actualOrdering := []string{}
 
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	sm.Configure(StateA).
 		Permit(TriggerX, StateB).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnExit(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			actualOrdering = append(actualOrdering, "OnExitA")
 			return nil
 		})
 
 	sm.Configure(StateB).
 		InitialTransition(StateC).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnEntry(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			actualOrdering = append(actualOrdering, "OnEntryB")
 			return nil
 		})
 
 	sm.Configure(StateC).
 		SubstateOf(StateB).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnEntry(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			actualOrdering = append(actualOrdering, "OnEntryC")
 			return nil
 		})
 
-	sm.OnTransitioned(func(t Transition[State, Trigger]) {
+	sm.OnTransitioned(func(t stateless.Transition[State, Trigger]) {
 		actualOrdering = append(actualOrdering, "OnTransitioned"+t.Source.String()+t.Destination.String())
 	})
 
-	sm.OnTransitionCompleted(func(t Transition[State, Trigger]) {
+	sm.OnTransitionCompleted(func(t stateless.Transition[State, Trigger]) {
 		actualOrdering = append(actualOrdering, "OnTransitionCompleted"+t.Source.String()+t.Destination.String())
 	})
 
@@ -1545,13 +1542,13 @@ type AssignArgs struct {
 
 func TestOnEntry_TypedArgument(t *testing.T) {
 	var receivedArgs AssignArgs
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	sm.Configure(StateA).Permit(TriggerX, StateB)
 
 	// Configure state with typed entry action using type assertion
 	sm.Configure(StateB).
-		OnEntry(func(ctx context.Context, trans Transition[State, Trigger]) error {
+		OnEntry(func(ctx context.Context, trans stateless.Transition[State, Trigger]) error {
 			if args, ok := trans.Args.(AssignArgs); ok {
 				receivedArgs = args
 			}
@@ -1571,13 +1568,13 @@ func TestOnEntry_TypedArgument(t *testing.T) {
 
 func TestOnEntry_CheckTrigger_TypedArgument(t *testing.T) {
 	var receivedArgs AssignArgs
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	sm.Configure(StateA).Permit(TriggerX, StateB)
 
 	// Configure state with typed entry action checking specific trigger
 	sm.Configure(StateB).
-		OnEntry(func(ctx context.Context, trans Transition[State, Trigger]) error {
+		OnEntry(func(ctx context.Context, trans stateless.Transition[State, Trigger]) error {
 			if trans.Trigger == TriggerX {
 				if args, ok := trans.Args.(AssignArgs); ok {
 					receivedArgs = args
@@ -1599,11 +1596,11 @@ func TestOnEntry_CheckTrigger_TypedArgument(t *testing.T) {
 
 func TestOnExit_TypedArgument(t *testing.T) {
 	var receivedArgs AssignArgs
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	sm.Configure(StateA).
 		Permit(TriggerX, StateB).
-		OnExit(func(ctx context.Context, trans Transition[State, Trigger]) error {
+		OnExit(func(ctx context.Context, trans stateless.Transition[State, Trigger]) error {
 			if args, ok := trans.Args.(AssignArgs); ok {
 				receivedArgs = args
 			}
@@ -1626,7 +1623,7 @@ func TestOnExit_TypedArgument(t *testing.T) {
 // Active states tests (ported from .NET Stateless)
 
 func TestWhenActivate(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	expectedOrdering := []string{"ActivatedC", "ActivatedA"}
 	actualOrdering := []string{}
@@ -1639,10 +1636,10 @@ func TestWhenActivate(t *testing.T) {
 		OnActivate(func(ctx context.Context) error { actualOrdering = append(actualOrdering, "ActivatedC"); return nil })
 
 	// should not be called for activation
-	sm.OnTransitioned(func(t Transition[State, Trigger]) {
+	sm.OnTransitioned(func(t stateless.Transition[State, Trigger]) {
 		actualOrdering = append(actualOrdering, "OnTransitioned")
 	})
-	sm.OnTransitionCompleted(func(t Transition[State, Trigger]) {
+	sm.OnTransitionCompleted(func(t stateless.Transition[State, Trigger]) {
 		actualOrdering = append(actualOrdering, "OnTransitionCompleted")
 	})
 
@@ -1661,7 +1658,7 @@ func TestWhenActivate(t *testing.T) {
 }
 
 func TestWhenActivateIsIdempotent(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	actualOrdering := []string{}
 
@@ -1685,7 +1682,7 @@ func TestWhenActivateIsIdempotent(t *testing.T) {
 }
 
 func TestWhenDeactivate(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	expectedOrdering := []string{"DeactivatedA", "DeactivatedC"}
 	actualOrdering := []string{}
@@ -1698,10 +1695,10 @@ func TestWhenDeactivate(t *testing.T) {
 		OnDeactivate(func(ctx context.Context) error { actualOrdering = append(actualOrdering, "DeactivatedC"); return nil })
 
 	// should not be called for deactivation
-	sm.OnTransitioned(func(t Transition[State, Trigger]) {
+	sm.OnTransitioned(func(t stateless.Transition[State, Trigger]) {
 		actualOrdering = append(actualOrdering, "OnTransitioned")
 	})
-	sm.OnTransitionCompleted(func(t Transition[State, Trigger]) {
+	sm.OnTransitionCompleted(func(t stateless.Transition[State, Trigger]) {
 		actualOrdering = append(actualOrdering, "OnTransitionCompleted")
 	})
 
@@ -1723,7 +1720,7 @@ func TestWhenDeactivate(t *testing.T) {
 }
 
 func TestWhenDeactivateIsIdempotent(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	actualOrdering := []string{}
 
@@ -1752,7 +1749,7 @@ func TestWhenDeactivateIsIdempotent(t *testing.T) {
 }
 
 func TestWhenTransitioning(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	expectedOrdering := []string{
 		"ActivatedA",
@@ -1771,11 +1768,11 @@ func TestWhenTransitioning(t *testing.T) {
 	sm.Configure(StateA).
 		OnActivate(func(ctx context.Context) error { actualOrdering = append(actualOrdering, "ActivatedA"); return nil }).
 		OnDeactivate(func(ctx context.Context) error { actualOrdering = append(actualOrdering, "DeactivatedA"); return nil }).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnEntry(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			actualOrdering = append(actualOrdering, "EnteredA")
 			return nil
 		}).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnExit(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			actualOrdering = append(actualOrdering, "ExitedA")
 			return nil
 		}).
@@ -1784,20 +1781,20 @@ func TestWhenTransitioning(t *testing.T) {
 	sm.Configure(StateB).
 		OnActivate(func(ctx context.Context) error { actualOrdering = append(actualOrdering, "ActivatedB"); return nil }).
 		OnDeactivate(func(ctx context.Context) error { actualOrdering = append(actualOrdering, "DeactivatedB"); return nil }).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnEntry(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			actualOrdering = append(actualOrdering, "EnteredB")
 			return nil
 		}).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnExit(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			actualOrdering = append(actualOrdering, "ExitedB")
 			return nil
 		}).
 		Permit(TriggerY, StateA)
 
-	sm.OnTransitioned(func(tr Transition[State, Trigger]) {
+	sm.OnTransitioned(func(tr stateless.Transition[State, Trigger]) {
 		actualOrdering = append(actualOrdering, "OnTransitioned")
 	})
-	sm.OnTransitionCompleted(func(tr Transition[State, Trigger]) {
+	sm.OnTransitionCompleted(func(tr stateless.Transition[State, Trigger]) {
 		actualOrdering = append(actualOrdering, "OnTransitionCompleted")
 	})
 
@@ -1822,7 +1819,7 @@ func TestWhenTransitioning(t *testing.T) {
 }
 
 func TestWhenTransitioningWithinSameSuperstate(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	expectedOrdering := []string{
 		"ActivatedC",
@@ -1870,7 +1867,7 @@ func TestWhenTransitioningWithinSameSuperstate(t *testing.T) {
 // Dynamic trigger behaviour tests (ported from .NET Stateless)
 
 func TestPermitDynamic_Selects_Expected_State(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).
 		PermitDynamic(TriggerX, func() State { return StateB })
 
@@ -1888,7 +1885,7 @@ type DynamicArgs struct {
 }
 
 func TestPermitDynamic_With_TriggerParameter_Selects_Expected_State(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).
 		PermitDynamicArgs(TriggerX, func(args any) State {
 			if da, ok := args.(DynamicArgs); ok && da.Value == 1 {
@@ -1907,21 +1904,21 @@ func TestPermitDynamic_With_TriggerParameter_Selects_Expected_State(t *testing.T
 }
 
 func TestPermitDynamic_Permits_Reentry(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	onExitInvoked := false
 	onEntryInvoked := false
 	onEntryFromTriggerXInvoked := false
 
 	sm.Configure(StateA).
 		PermitDynamic(TriggerX, func() State { return StateA }).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnEntry(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			onEntryInvoked = true
 			if tr.Trigger == TriggerX {
 				onEntryFromTriggerXInvoked = true
 			}
 			return nil
 		}).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error { onExitInvoked = true; return nil })
+		OnExit(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { onExitInvoked = true; return nil })
 
 	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -1942,7 +1939,7 @@ func TestPermitDynamic_Permits_Reentry(t *testing.T) {
 }
 
 func TestPermitDynamic_Selects_Expected_State_Based_On_DestinationStateSelector_Function(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	value := 'C'
 	sm.Configure(StateA).
 		PermitDynamic(TriggerX, func() State {
@@ -1962,7 +1959,7 @@ func TestPermitDynamic_Selects_Expected_State_Based_On_DestinationStateSelector_
 }
 
 func TestPermitDynamicIf_With_TriggerParameter_Permits_Transition_When_GuardCondition_Met(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	sm.Configure(StateA).
 		PermitDynamicArgsIf(TriggerX,
@@ -1995,7 +1992,7 @@ type DynamicArgs2 struct {
 }
 
 func TestPermitDynamicIf_With_2_TriggerParameters_Permits_Transition_When_GuardCondition_Met(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	sm.Configure(StateA).
 		PermitDynamicArgsIf(TriggerX,
@@ -2029,7 +2026,7 @@ type DynamicArgs3 struct {
 }
 
 func TestPermitDynamicIf_With_3_TriggerParameters_Permits_Transition_When_GuardCondition_Met(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	sm.Configure(StateA).
 		PermitDynamicArgsIf(TriggerX,
@@ -2057,7 +2054,7 @@ func TestPermitDynamicIf_With_3_TriggerParameters_Permits_Transition_When_GuardC
 }
 
 func TestPermitDynamicIf_With_TriggerParameter_Throws_When_GuardCondition_Not_Met(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	sm.Configure(StateA).
 		PermitDynamicArgsIf(TriggerX,
@@ -2082,7 +2079,7 @@ func TestPermitDynamicIf_With_TriggerParameter_Throws_When_GuardCondition_Not_Me
 }
 
 func TestPermitDynamicIf_With_2_TriggerParameters_Throws_When_GuardCondition_Not_Met(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	sm.Configure(StateA).
 		PermitDynamicArgsIf(TriggerX,
@@ -2107,7 +2104,7 @@ func TestPermitDynamicIf_With_2_TriggerParameters_Throws_When_GuardCondition_Not
 }
 
 func TestPermitDynamicIf_With_3_TriggerParameters_Throws_When_GuardCondition_Not_Met(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	sm.Configure(StateA).
 		PermitDynamicArgsIf(TriggerX,
@@ -2132,21 +2129,21 @@ func TestPermitDynamicIf_With_3_TriggerParameters_Throws_When_GuardCondition_Not
 }
 
 func TestPermitDynamicIf_Permits_Reentry_When_GuardCondition_Met(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	onExitInvoked := false
 	onEntryInvoked := false
 	onEntryFromTriggerXInvoked := false
 
 	sm.Configure(StateA).
 		PermitDynamicIf(TriggerX, func() State { return StateA }, func() bool { return true }).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
+		OnEntry(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			onEntryInvoked = true
 			if tr.Trigger == TriggerX {
 				onEntryFromTriggerXInvoked = true
 			}
 			return nil
 		}).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error { onExitInvoked = true; return nil })
+		OnExit(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error { onExitInvoked = true; return nil })
 
 	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -2169,7 +2166,7 @@ func TestPermitDynamicIf_Permits_Reentry_When_GuardCondition_Met(t *testing.T) {
 // Ignored trigger behaviour tests (ported from .NET Stateless)
 
 func TestIgnore_StateRemainsUnchanged(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).Ignore(TriggerX)
 
 	if err := sm.Fire(TriggerX, nil); err != nil {
@@ -2182,7 +2179,7 @@ func TestIgnore_StateRemainsUnchanged(t *testing.T) {
 }
 
 func TestIgnoredTriggerBehaviour_ExposesCorrectUnderlyingTrigger(t *testing.T) {
-	ignored := NewIgnoredTriggerBehaviour[State, Trigger](TriggerX, EmptyTransitionGuard)
+	ignored := stateless.NewIgnoredTriggerBehaviour[State, Trigger](TriggerX, stateless.EmptyTransitionGuard)
 
 	if ignored.GetTrigger() != TriggerX {
 		t.Errorf("expected TriggerX, got %v", ignored.GetTrigger())
@@ -2191,7 +2188,7 @@ func TestIgnoredTriggerBehaviour_ExposesCorrectUnderlyingTrigger(t *testing.T) {
 
 func TestIgnoredTriggerBehaviour_WhenGuardConditionFalse_IsGuardConditionMetIsFalse(t *testing.T) {
 	guardFalse := func() bool { return false }
-	ignored := NewIgnoredTriggerBehaviour[State, Trigger](TriggerX, NewTransitionGuard(guardFalse, ""))
+	ignored := stateless.NewIgnoredTriggerBehaviour[State, Trigger](TriggerX, stateless.NewTransitionGuard(guardFalse, ""))
 
 	if ignored.GuardConditionsMet(nil) {
 		t.Error("expected GuardConditionsMet to be false")
@@ -2200,7 +2197,7 @@ func TestIgnoredTriggerBehaviour_WhenGuardConditionFalse_IsGuardConditionMetIsFa
 
 func TestIgnoredTriggerBehaviour_WhenGuardConditionTrue_IsGuardConditionMetIsTrue(t *testing.T) {
 	guardTrue := func() bool { return true }
-	ignored := NewIgnoredTriggerBehaviour[State, Trigger](TriggerX, NewTransitionGuard(guardTrue, ""))
+	ignored := stateless.NewIgnoredTriggerBehaviour[State, Trigger](TriggerX, stateless.NewTransitionGuard(guardTrue, ""))
 
 	if !ignored.GuardConditionsMet(nil) {
 		t.Error("expected GuardConditionsMet to be true")
@@ -2210,7 +2207,7 @@ func TestIgnoredTriggerBehaviour_WhenGuardConditionTrue_IsGuardConditionMetIsTru
 func TestIgnoredTriggerMustBeIgnoredSync(t *testing.T) {
 	// In a substate hierarchy, ignored trigger in substate should be properly ignored
 	// and not cause the superstate's transition to execute
-	sm := NewStateMachine[State, Trigger](StateB)
+	sm := stateless.NewStateMachine[State, Trigger](StateB)
 
 	sm.Configure(StateA).
 		Permit(TriggerX, StateC)
@@ -2230,7 +2227,7 @@ func TestIgnoredTriggerMustBeIgnoredSync(t *testing.T) {
 }
 
 func TestIgnoreIfTrueTriggerMustBeIgnored(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateB)
+	sm := stateless.NewStateMachine[State, Trigger](StateB)
 
 	sm.Configure(StateA).
 		Permit(TriggerX, StateC)
@@ -2249,7 +2246,7 @@ func TestIgnoreIfTrueTriggerMustBeIgnored(t *testing.T) {
 }
 
 func TestIgnoreIfFalseTriggerMustNotBeIgnored(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateB)
+	sm := stateless.NewStateMachine[State, Trigger](StateB)
 
 	sm.Configure(StateA).
 		Permit(TriggerX, StateC)
@@ -2268,15 +2265,15 @@ func TestIgnoreIfFalseTriggerMustNotBeIgnored(t *testing.T) {
 }
 
 func TestInternalTransitionIf_ShouldExecuteOnlyFirstMatchingAction(t *testing.T) {
-	sm := NewStateMachine[int, int](1)
+	sm := stateless.NewStateMachine[int, int](1)
 	executed := false
 
 	sm.Configure(1).
-		InternalTransitionIf(1, func() bool { return true }, func(ctx context.Context, tr Transition[int, int]) error {
+		InternalTransitionIf(1, func() bool { return true }, func(ctx context.Context, tr stateless.Transition[int, int]) error {
 			executed = true
 			return nil
 		}).
-		InternalTransitionIf(1, func() bool { return false }, func(ctx context.Context, tr Transition[int, int]) error {
+		InternalTransitionIf(1, func() bool { return false }, func(ctx context.Context, tr stateless.Transition[int, int]) error {
 			t.Error("second action should not be executed")
 			return nil
 		})
@@ -2291,7 +2288,7 @@ func TestInternalTransitionIf_ShouldExecuteOnlyFirstMatchingAction(t *testing.T)
 }
 
 func TestSubstateTransition_OverridesSuperstate(t *testing.T) {
-	sm := NewStateMachine[State, Trigger](StateA)
+	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	sm.Configure(StateA).
 		Permit(TriggerX, StateB)
@@ -2318,7 +2315,7 @@ func TestSubstateTransition_OverridesSuperstate(t *testing.T) {
 
 func TestSubstateTransition_GuardBlocked_UsesSuperstateTransition(t *testing.T) {
 	guardConditionValue := false
-	sm := NewStateMachine[State, Trigger](StateB)
+	sm := stateless.NewStateMachine[State, Trigger](StateB)
 
 	sm.Configure(StateA).
 		PermitIf(TriggerX, StateD, func() bool { return true })
@@ -2338,7 +2335,7 @@ func TestSubstateTransition_GuardBlocked_UsesSuperstateTransition(t *testing.T) 
 
 func TestSubstateTransition_GuardOpen_UsesSubstateTransition(t *testing.T) {
 	guardConditionValue := true
-	sm := NewStateMachine[State, Trigger](StateB)
+	sm := stateless.NewStateMachine[State, Trigger](StateB)
 
 	sm.Configure(StateA).
 		PermitIf(TriggerX, StateD, func() bool { return true })
@@ -2375,7 +2372,7 @@ func TestMultiLayerSubstates_GuardFallthrough(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			sm := NewStateMachine[string, Trigger]("GrandchildState")
+			sm := stateless.NewStateMachine[string, Trigger]("GrandchildState")
 
 			sm.Configure("ParentState").
 				PermitIf(TriggerX, "ParentStateTarget", func() bool { return tc.parentGuard })
@@ -2419,13 +2416,13 @@ func TestChildToParentTransition_OnEntryNotFired(t *testing.T) {
 		exitA     Issue98Trigger = "ExitA"
 	)
 
-	sm := NewStateMachine[Issue98State, Issue98Trigger](working)
+	sm := stateless.NewStateMachine[Issue98State, Issue98Trigger](working)
 
 	var workingEntryCount int
 	var substateAExitCount int
 
 	sm.Configure(working).
-		OnEntry(func(ctx context.Context, tr Transition[Issue98State, Issue98Trigger]) error {
+		OnEntry(func(ctx context.Context, tr stateless.Transition[Issue98State, Issue98Trigger]) error {
 			workingEntryCount++
 			return nil
 		}).
@@ -2434,7 +2431,7 @@ func TestChildToParentTransition_OnEntryNotFired(t *testing.T) {
 
 	sm.Configure(substateA).
 		SubstateOf(working).
-		OnExit(func(ctx context.Context, tr Transition[Issue98State, Issue98Trigger]) error {
+		OnExit(func(ctx context.Context, tr stateless.Transition[Issue98State, Issue98Trigger]) error {
 			substateAExitCount++
 			return nil
 		}).
