@@ -39,7 +39,7 @@ func TestPermitReentry(t *testing.T) {
 func TestPermitDynamic(t *testing.T) {
 	destState := StateB
 	sm := stateless.NewStateMachine[State, Trigger](StateA)
-	sm.Configure(StateA).PermitDynamic(TriggerX, func() State {
+	sm.Configure(StateA).PermitDynamic(TriggerX, func(_ any) State {
 		return destState
 	})
 
@@ -53,7 +53,7 @@ func TestPermitDynamic(t *testing.T) {
 	// Reset and try with different destination
 	sm = stateless.NewStateMachine[State, Trigger](StateA)
 	destState = StateC
-	sm.Configure(StateA).PermitDynamic(TriggerX, func() State {
+	sm.Configure(StateA).PermitDynamic(TriggerX, func(_ any) State {
 		return destState
 	})
 
@@ -67,7 +67,7 @@ func TestPermitDynamic(t *testing.T) {
 
 func TestPermitDynamicWithArgs(t *testing.T) {
 	sm := stateless.NewStateMachine[State, Trigger](StateA)
-	sm.Configure(StateA).PermitDynamicArgs(TriggerX, func(args any) State {
+	sm.Configure(StateA).PermitDynamic(TriggerX, func(args any) State {
 		if state, ok := args.(State); ok {
 			return state
 		}
@@ -87,7 +87,7 @@ func TestPermitDynamicWithArgs(t *testing.T) {
 func TestPermitDynamic_Selects_Expected_State(t *testing.T) {
 	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).
-		PermitDynamic(TriggerX, func() State { return StateB })
+		PermitDynamic(TriggerX, func(_ any) State { return StateB })
 
 	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -105,7 +105,7 @@ type DynamicArgs struct {
 func TestPermitDynamic_With_TriggerParameter_Selects_Expected_State(t *testing.T) {
 	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).
-		PermitDynamicArgs(TriggerX, func(args any) State {
+		PermitDynamic(TriggerX, func(args any) State {
 			if da, ok := args.(DynamicArgs); ok && da.Value == 1 {
 				return StateB
 			}
@@ -128,7 +128,7 @@ func TestPermitDynamic_Permits_Reentry(t *testing.T) {
 	onEntryFromTriggerXInvoked := false
 
 	sm.Configure(StateA).
-		PermitDynamic(TriggerX, func() State { return StateA }).
+		PermitDynamic(TriggerX, func(_ any) State { return StateA }).
 		OnEntry(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			onEntryInvoked = true
 			if tr.Trigger == TriggerX {
@@ -163,7 +163,7 @@ func TestPermitDynamic_Selects_Expected_State_Based_On_DestinationStateSelector_
 	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	value := 'C'
 	sm.Configure(StateA).
-		PermitDynamic(TriggerX, func() State {
+		PermitDynamic(TriggerX, func(_ any) State {
 			if value == 'B' {
 				return StateB
 			}
@@ -183,7 +183,7 @@ func TestPermitDynamicIf_With_TriggerParameter_Permits_Transition_When_GuardCond
 	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	sm.Configure(StateA).
-		PermitDynamicArgsIf(TriggerX,
+		PermitDynamicIf(TriggerX,
 			func(args any) State {
 				if da, ok := args.(DynamicArgs); ok && da.Value == 1 {
 					return StateC
@@ -216,7 +216,7 @@ func TestPermitDynamicIf_With_2_TriggerParameters_Permits_Transition_When_GuardC
 	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	sm.Configure(StateA).
-		PermitDynamicArgsIf(TriggerX,
+		PermitDynamicIf(TriggerX,
 			func(args any) State {
 				if da, ok := args.(DynamicArgs2); ok && da.I == 1 && da.J == 2 {
 					return StateC
@@ -250,7 +250,7 @@ func TestPermitDynamicIf_With_3_TriggerParameters_Permits_Transition_When_GuardC
 	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	sm.Configure(StateA).
-		PermitDynamicArgsIf(TriggerX,
+		PermitDynamicIf(TriggerX,
 			func(args any) State {
 				if da, ok := args.(DynamicArgs3); ok && da.I == 1 && da.J == 2 && da.K == 3 {
 					return StateC
@@ -278,7 +278,7 @@ func TestPermitDynamicIf_With_TriggerParameter_Throws_When_GuardCondition_Not_Me
 	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	sm.Configure(StateA).
-		PermitDynamicArgsIf(TriggerX,
+		PermitDynamicIf(TriggerX,
 			func(args any) State {
 				if da, ok := args.(DynamicArgs); ok && da.Value > 0 {
 					return StateC
@@ -303,7 +303,7 @@ func TestPermitDynamicIf_With_2_TriggerParameters_Throws_When_GuardCondition_Not
 	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	sm.Configure(StateA).
-		PermitDynamicArgsIf(TriggerX,
+		PermitDynamicIf(TriggerX,
 			func(args any) State {
 				if da, ok := args.(DynamicArgs2); ok && da.I > 0 {
 					return StateC
@@ -328,7 +328,7 @@ func TestPermitDynamicIf_With_3_TriggerParameters_Throws_When_GuardCondition_Not
 	sm := stateless.NewStateMachine[State, Trigger](StateA)
 
 	sm.Configure(StateA).
-		PermitDynamicArgsIf(TriggerX,
+		PermitDynamicIf(TriggerX,
 			func(args any) State {
 				if da, ok := args.(DynamicArgs3); ok && da.I > 0 {
 					return StateC
@@ -356,7 +356,7 @@ func TestPermitDynamicIf_Permits_Reentry_When_GuardCondition_Met(t *testing.T) {
 	onEntryFromTriggerXInvoked := false
 
 	sm.Configure(StateA).
-		PermitDynamicIf(TriggerX, func() State { return StateA }, func() bool { return true }).
+		PermitDynamicIf(TriggerX, func(_ any) State { return StateA }, func(_ any) bool { return true }).
 		OnEntry(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			onEntryInvoked = true
 			if tr.Trigger == TriggerX {

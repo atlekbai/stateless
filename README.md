@@ -123,11 +123,17 @@ sm.Configure(StateA).
 
 ```go
 sm.Configure(StateA).
-    PermitDynamic(TriggerX, func() State {
+    PermitDynamic(TriggerX, func(args any) State {
         if someCondition {
             return StateB
         }
         return StateC
+    })
+
+// If you don't need args, just ignore them:
+sm.Configure(StateA).
+    PermitDynamic(TriggerX, func(_ any) State {
+        return StateB
     })
 ```
 

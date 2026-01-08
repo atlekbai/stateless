@@ -162,34 +162,9 @@ func (sc *StateConfiguration[TState, TTrigger]) IgnoreIfArgs(
 }
 
 // PermitDynamic configures the state to transition to a dynamically determined destination state
-// when the specified trigger is fired.
+// when the specified trigger is fired. The destination selector receives the trigger arguments.
+// If you don't need args, use func(_ any) TState { return targetState }.
 func (sc *StateConfiguration[TState, TTrigger]) PermitDynamic(
-	trigger TTrigger,
-	destinationSelector func() TState,
-	possibleDestinations ...DynamicStateInfo,
-) *StateConfiguration[TState, TTrigger] {
-	info := DynamicTransitionInfo{
-		transitionInfoBase: transitionInfoBase{
-			Trigger:         NewTriggerInfo(trigger),
-			GuardConditions: nil,
-		},
-		DestinationStateSelectorDescription: CreateInvocationInfo(destinationSelector, ""),
-		PossibleDestinationStates:           possibleDestinations,
-	}
-	sc.representation.AddTriggerBehaviour(
-		NewDynamicTriggerBehaviour(
-			trigger,
-			func(_ any) TState { return destinationSelector() },
-			EmptyTransitionGuard,
-			info,
-		),
-	)
-	return sc
-}
-
-// PermitDynamicArgs configures the state to transition to a dynamically determined destination state
-// when the specified trigger is fired, using the trigger arguments.
-func (sc *StateConfiguration[TState, TTrigger]) PermitDynamicArgs(
 	trigger TTrigger,
 	destinationSelector func(args any) TState,
 	possibleDestinations ...DynamicStateInfo,
@@ -210,34 +185,9 @@ func (sc *StateConfiguration[TState, TTrigger]) PermitDynamicArgs(
 
 // PermitDynamicIf configures the state to transition to a dynamically determined destination state
 // when the specified trigger is fired, if the guard condition is met.
+// Both selector and guard receive the trigger arguments.
+// If you don't need args, use func(_ any) TState and func(_ any) bool.
 func (sc *StateConfiguration[TState, TTrigger]) PermitDynamicIf(
-	trigger TTrigger,
-	destinationSelector func() TState,
-	guard func() bool,
-	guardDescription ...string,
-) *StateConfiguration[TState, TTrigger] {
-	desc := firstOrEmpty(guardDescription)
-	info := DynamicTransitionInfo{
-		transitionInfoBase: transitionInfoBase{
-			Trigger:         NewTriggerInfo(trigger),
-			GuardConditions: []InvocationInfo{CreateInvocationInfo(guard, desc)},
-		},
-		DestinationStateSelectorDescription: CreateInvocationInfo(destinationSelector, ""),
-	}
-	sc.representation.AddTriggerBehaviour(
-		NewDynamicTriggerBehaviour(
-			trigger,
-			func(_ any) TState { return destinationSelector() },
-			NewTransitionGuard(guard, desc),
-			info,
-		),
-	)
-	return sc
-}
-
-// PermitDynamicArgsIf configures the state to transition to a dynamically determined destination state
-// when the specified trigger is fired, using the trigger arguments, if the guard condition is met.
-func (sc *StateConfiguration[TState, TTrigger]) PermitDynamicArgsIf(
 	trigger TTrigger,
 	destinationSelector func(args any) TState,
 	guard func(args any) bool,
