@@ -93,7 +93,7 @@ func (sn *StateNode[TState, TTrigger]) IgnoreIf(tr TTrigger, gf GuardFunc) *Stat
 // If you don't need args, use func(_ any) TState { return targetState }.
 func (sn *StateNode[TState, TTrigger]) PermitDynamic(
 	tr TTrigger,
-	dst func(args any) TState,
+	ss StateSelector[TState],
 	possibleDestinations ...DynamicStateInfo,
 ) *StateNode[TState, TTrigger] {
 	info := DynamicTransitionInfo{
@@ -101,11 +101,11 @@ func (sn *StateNode[TState, TTrigger]) PermitDynamic(
 			Trigger:         NewTriggerInfo(tr),
 			GuardConditions: nil,
 		},
-		DestinationStateSelectorDescription: CreateInvocationInfo(dst, ""),
+		DestinationStateSelectorDescription: CreateInvocationInfo(ss, ""),
 		PossibleDestinationStates:           possibleDestinations,
 	}
 	sn.representation.AddTriggerBehaviour(
-		NewDynamicTriggerBehaviour(tr, dst, EmptyTransitionGuard, info),
+		NewDynamicTriggerBehaviour(tr, ss, EmptyTransitionGuard, info),
 	)
 	return sn
 }
@@ -116,7 +116,7 @@ func (sn *StateNode[TState, TTrigger]) PermitDynamic(
 // The guard returns nil if the condition is met, or an error describing why it failed.
 func (sn *StateNode[TState, TTrigger]) PermitDynamicIf(
 	tr TTrigger,
-	dstSelector func(args any) TState,
+	ss StateSelector[TState],
 	gf GuardFunc,
 ) *StateNode[TState, TTrigger] {
 	info := DynamicTransitionInfo{
@@ -124,10 +124,10 @@ func (sn *StateNode[TState, TTrigger]) PermitDynamicIf(
 			Trigger:         NewTriggerInfo(tr),
 			GuardConditions: []InvocationInfo{CreateInvocationInfo(gf, "")},
 		},
-		DestinationStateSelectorDescription: CreateInvocationInfo(dstSelector, ""),
+		DestinationStateSelectorDescription: CreateInvocationInfo(ss, ""),
 	}
 	sn.representation.AddTriggerBehaviour(
-		NewDynamicTriggerBehaviour(tr, dstSelector, NewTransitionGuard(gf), info),
+		NewDynamicTriggerBehaviour(tr, ss, NewTransitionGuard(gf), info),
 	)
 	return sn
 }

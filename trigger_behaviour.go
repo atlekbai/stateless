@@ -48,16 +48,16 @@ type TransitioningTriggerBehaviour[TState, TTrigger comparable] struct {
 
 // NewTransitioningTriggerBehaviour creates a new transitioning trigger behaviour.
 func NewTransitioningTriggerBehaviour[TState, TTrigger comparable](
-	trigger TTrigger,
-	destination TState,
-	guard TransitionGuard,
+	tr TTrigger,
+	dst TState,
+	tg TransitionGuard,
 ) *TransitioningTriggerBehaviour[TState, TTrigger] {
 	return &TransitioningTriggerBehaviour[TState, TTrigger]{
 		triggerBehaviourBase: triggerBehaviourBase[TState, TTrigger]{
-			trigger: trigger,
-			guard:   guard,
+			trigger: tr,
+			guard:   tg,
 		},
-		Destination: destination,
+		Destination: dst,
 	}
 }
 
@@ -70,16 +70,16 @@ type ReentryTriggerBehaviour[TState, TTrigger comparable] struct {
 
 // NewReentryTriggerBehaviour creates a new reentry trigger behaviour.
 func NewReentryTriggerBehaviour[TState, TTrigger comparable](
-	trigger TTrigger,
-	destination TState,
-	guard TransitionGuard,
+	tr TTrigger,
+	dst TState,
+	tg TransitionGuard,
 ) *ReentryTriggerBehaviour[TState, TTrigger] {
 	return &ReentryTriggerBehaviour[TState, TTrigger]{
 		triggerBehaviourBase: triggerBehaviourBase[TState, TTrigger]{
-			trigger: trigger,
-			guard:   guard,
+			trigger: tr,
+			guard:   tg,
 		},
-		Destination: destination,
+		Destination: dst,
 	}
 }
 
@@ -90,13 +90,13 @@ type IgnoredTriggerBehaviour[TState, TTrigger comparable] struct {
 
 // NewIgnoredTriggerBehaviour creates a new ignored trigger behaviour.
 func NewIgnoredTriggerBehaviour[TState, TTrigger comparable](
-	trigger TTrigger,
-	guard TransitionGuard,
+	tr TTrigger,
+	tg TransitionGuard,
 ) *IgnoredTriggerBehaviour[TState, TTrigger] {
 	return &IgnoredTriggerBehaviour[TState, TTrigger]{
 		triggerBehaviourBase: triggerBehaviourBase[TState, TTrigger]{
-			trigger: trigger,
-			guard:   guard,
+			trigger: tr,
+			guard:   tg,
 		},
 	}
 }
@@ -105,23 +105,23 @@ func NewIgnoredTriggerBehaviour[TState, TTrigger comparable](
 type DynamicTriggerBehaviour[TState, TTrigger comparable] struct {
 	triggerBehaviourBase[TState, TTrigger]
 
-	destination    func(args any) TState
+	destination    StateSelector[TState]
 	TransitionInfo DynamicTransitionInfo
 }
 
 // NewDynamicTriggerBehaviour creates a new dynamic trigger behaviour.
 func NewDynamicTriggerBehaviour[TState, TTrigger comparable](
-	trigger TTrigger,
-	destination func(args any) TState,
-	guard TransitionGuard,
+	tr TTrigger,
+	ss StateSelector[TState],
+	tg TransitionGuard,
 	info DynamicTransitionInfo,
 ) *DynamicTriggerBehaviour[TState, TTrigger] {
 	return &DynamicTriggerBehaviour[TState, TTrigger]{
 		triggerBehaviourBase: triggerBehaviourBase[TState, TTrigger]{
-			trigger: trigger,
-			guard:   guard,
+			trigger: tr,
+			guard:   tg,
 		},
-		destination:    destination,
+		destination:    ss,
 		TransitionInfo: info,
 	}
 }
@@ -146,26 +146,26 @@ type SyncInternalTriggerBehaviour[TState, TTrigger comparable] struct {
 
 // NewSyncInternalTriggerBehaviour creates a new synchronous internal trigger behaviour.
 func NewSyncInternalTriggerBehaviour[TState, TTrigger comparable](
-	trigger TTrigger,
-	guard TransitionGuard,
-	internalAction TransitionAction[TState, TTrigger],
+	tr TTrigger,
+	tg TransitionGuard,
+	act TransitionAction[TState, TTrigger],
 ) *SyncInternalTriggerBehaviour[TState, TTrigger] {
 	return &SyncInternalTriggerBehaviour[TState, TTrigger]{
 		triggerBehaviourBase: triggerBehaviourBase[TState, TTrigger]{
-			trigger: trigger,
-			guard:   guard,
+			trigger: tr,
+			guard:   tg,
 		},
-		internalAction: internalAction,
+		internalAction: act,
 	}
 }
 
 // Execute executes the internal action.
 func (s *SyncInternalTriggerBehaviour[TState, TTrigger]) Execute(
 	ctx context.Context,
-	transition Transition[TState, TTrigger],
+	t Transition[TState, TTrigger],
 ) error {
 	if s.internalAction != nil {
-		return s.internalAction(ctx, transition)
+		return s.internalAction(ctx, t)
 	}
 	return nil
 }

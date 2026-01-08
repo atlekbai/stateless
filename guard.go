@@ -7,6 +7,10 @@ import "context"
 // or an error describing why the guard failed.
 type GuardFunc func(ctx context.Context, args any) error
 
+// StateSelector is a function that determines the destination state
+// based on the trigger arguments.
+type StateSelector[TState comparable] func(args any) TState
+
 // GuardCondition represents a single guard condition with its method description.
 type GuardCondition struct {
 	// Guard is the guard function that takes args and returns nil if the condition is met,
