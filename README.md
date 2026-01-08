@@ -78,7 +78,8 @@ func main() {
 
 ### Visualizing the State Machine
 
-You can generate a Mermaid diagram to visualize your state machine:
+> [!TIP]
+> You can generate Mermaid or DOT (Graphviz) diagrams to visualize your state machine. This is helpful for documentation and debugging complex state flows.
 
 ```go
 import (
@@ -121,6 +122,15 @@ sm.Configure(StateA).
     Permit(TriggerX, StateB)  // TriggerX causes transition to StateB
 ```
 
+```mermaid
+stateDiagram-v2
+    direction LR
+    StateA --> StateB: TriggerX
+```
+
+> [!NOTE]
+> This creates a simple one-way transition. StateA can move to StateB when TriggerX fires.
+
 ### Conditional Transitions (Guards)
 
 Guards return `nil` if the transition should proceed, or use `stateless.Reject()` for expected rejections:
@@ -135,7 +145,8 @@ sm.Configure(StateA).
     })
 ```
 
-**Important:** Use `stateless.Reject()` for expected guard rejections (business logic). Any other error returned from a guard is treated as an unexpected error and will propagate immediately.
+> [!IMPORTANT]
+> Use `stateless.Reject()` for expected guard rejections (business logic). Any other error returned from a guard is treated as an unexpected error and will propagate immediately.
 
 ```go
 // Expected rejection - guard intentionally blocks transition
@@ -145,6 +156,21 @@ return stateless.Reject("insufficient balance")
 return fmt.Errorf("database error: %w", err)
 ```
 
+```mermaid
+stateDiagram-v2
+    direction LR
+    StateA --> StateB: TriggerX [condition met]
+    StateA --> StateA: TriggerX [condition not met]
+
+    note right of StateA
+        Guard evaluates condition
+        Transition only if guard returns nil
+    end note
+```
+
+> [!TIP]
+> Guards are perfect for modeling business rules. The transition attempts, but the guard decides whether it proceeds.
+
 ### Ignored Triggers
 
 ```go
@@ -152,12 +178,40 @@ sm.Configure(StateA).
     Ignore(TriggerX)  // TriggerX does nothing in StateA
 ```
 
+```mermaid
+stateDiagram-v2
+    direction LR
+    StateA --> StateB: TriggerY
+
+    note right of StateA
+        TriggerX is ignored
+        No error, no state change
+    end note
+```
+
+> [!TIP]
+> Use `Ignore()` when a trigger is valid but should have no effect in certain states. This prevents errors while keeping the trigger valid.
+
 ### Reentry Transitions
 
 ```go
 sm.Configure(StateA).
     PermitReentry(TriggerX)  // TriggerX causes exit and entry of StateA
 ```
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    StateA --> StateA: TriggerX (reentry)
+
+    note right of StateA
+        Fires OnExit, then OnEntry
+        Useful for resetting state
+    end note
+```
+
+> [!NOTE]
+> Reentry transitions exit and re-enter the same state, firing both exit and entry actions. This differs from internal transitions which don't fire these actions.
 
 ### Internal Transitions
 
@@ -169,6 +223,23 @@ sm.Configure(StateA).
         return nil
     })
 ```
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    state StateA {
+        [*] --> [*]: TriggerX (internal)
+    }
+
+    note right of StateA
+        No exit/entry actions
+        State unchanged
+        Action executes in-place
+    end note
+```
+
+> [!TIP]
+> Internal transitions are perfect for handling events that don't change state but need to perform actions (e.g., logging, counters, notifications).
 
 ### Dynamic Transitions
 
@@ -187,6 +258,21 @@ sm.Configure(StateA).
         return StateB, nil
     })
 ```
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    StateA --> StateB: TriggerX [condition A]
+    StateA --> StateC: TriggerX [condition B]
+
+    note right of StateA
+        Destination determined at runtime
+        Based on trigger arguments
+    end note
+```
+
+> [!NOTE]
+> Dynamic transitions let you determine the destination state at runtime based on trigger arguments or application state. Perfect for complex routing logic.
 
 ## Entry and Exit Actions
 
@@ -213,6 +299,25 @@ sm.Configure(StateB).
     })
 ```
 
+```mermaid
+stateDiagram-v2
+    direction LR
+    StateA --> StateB: TriggerX
+
+    note left of StateA
+        1. OnExit(StateA) fires
+        Access: t.Source, t.Destination, t.Trigger, t.Args
+    end note
+
+    note right of StateB
+        2. OnEntry(StateB) fires
+        Access: t.Source, t.Destination, t.Trigger, t.Args
+    end note
+```
+
+> [!NOTE]
+> Entry and exit actions fire in a predictable order during transitions: first the source state's OnExit, then the destination state's OnEntry. Both actions receive the complete Transition object with source, destination, trigger, and arguments.
+
 ## Hierarchical States
 
 ```go
@@ -226,6 +331,27 @@ sm.Configure(StateC).
 // Check if in superstate
 sm.IsInState(StateB)  // true when in StateB or StateC
 ```
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    StateA
+    StateB --> StateA: TriggerX
+    StateC --> StateA: TriggerX (inherited)
+
+    state StateB {
+        StateC
+    }
+
+    note right of StateB
+        StateC is a substate of StateB
+        Inherits TriggerX -> StateA transition
+        IsInState(StateB) returns true when in StateC
+    end note
+```
+
+> [!NOTE]
+> Substates inherit transitions from their parent states. This allows you to define common transitions once in the parent and have them automatically available in all child states.
 
 ## Parameterized Triggers
 
@@ -249,6 +375,9 @@ sm.Configure(StateB).
 // Fire with struct argument
 sm.Fire(TriggerX, CallArgs{CallerID: "555-1234"})
 ```
+
+> [!TIP]
+> Define a dedicated struct type for each trigger's arguments. This makes the code more maintainable and provides clear documentation of what data each trigger expects.
 
 ## Activation and Deactivation
 
@@ -298,6 +427,9 @@ sm := stateless.NewStateMachine[State, Trigger](StateA)
 sm := stateless.NewStateMachineWithMode[State, Trigger](StateA, stateless.FiringQueued)
 ```
 
+> [!WARNING]
+> Use **queued mode** for concurrent access. Immediate mode is not thread-safe when multiple goroutines fire triggers simultaneously.
+
 ## External State Storage
 
 ```go
@@ -308,6 +440,9 @@ sm := stateless.NewStateMachineWithExternalStorage[State, Trigger](
     func(s State) { currentState = s },       // Mutator
 )
 ```
+
+> [!CAUTION]
+> When using external state storage, ensure your accessor and mutator functions are thread-safe if using concurrent access. The state machine will not manage synchronization for external state.
 
 ## Introspection
 
@@ -363,6 +498,9 @@ defer cancel()
 
 err := sm.FireCtx(ctx, TriggerX, nil)
 ```
+
+> [!NOTE]
+> Context cancellation is checked before firing each trigger. Actions can also check `ctx.Err()` to handle cancellation gracefully. `Fire()` uses `context.Background()` by default.
 
 ## Complete Example
 
@@ -433,6 +571,32 @@ func main() {
     sm.Fire(HungUp, nil)
 }
 ```
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> OffHook
+    OffHook --> Ringing: CallDialed
+    Ringing --> Connected: CallConnected
+    Ringing --> OffHook: HungUp
+    Connected --> OffHook: HungUp
+    Connected --> OnHold: PlacedOnHold
+    OnHold --> Connected: TakenOffHold
+    OnHold --> OffHook: HungUp
+
+    state Connected {
+        OnHold
+    }
+
+    note right of Connected
+        OnHold is a substate of Connected
+        Inherits HungUp -> OffHook transition
+        OnEntry action logs "Call connected!"
+    end note
+```
+
+> [!TIP]
+> This example demonstrates several key features: hierarchical states (OnHold as a substate of Connected), entry actions, transition events, and graph generation. The state machine models a realistic phone call lifecycle with proper state transitions and event handling.
 
 ## License
 
