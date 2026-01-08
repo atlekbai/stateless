@@ -85,11 +85,3 @@ type StayTransition struct {
 type FixedTransition struct {
 	*Transition
 }
-
-// DynamicTransition represents a transition to a dynamically determined state.
-type DynamicTransition struct {
-	*Transition
-
-	// Criterion is the reason this destination was chosen.
-	Criterion string
-}
