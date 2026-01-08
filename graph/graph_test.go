@@ -375,7 +375,11 @@ func TestDotGraph_OnEntryWithAnonymousActionAndDescription(t *testing.T) {
 
 	// Note: Go doesn't have description parameter on OnEntry, use OnEntryWithDescription if available
 	// For now, we test that entry actions appear in graph
-	sm.Configure(TestStateA).OnEntry(func(ctx context.Context, tr stateless.Transition[TestState, TestTrigger]) error { return nil })
+	sm.Configure(TestStateA).OnEntry(
+		func(ctx context.Context, tr stateless.Transition[TestState, TestTrigger]) error {
+			return nil
+		},
+	)
 
 	dotGraph := UmlDotGraph(sm.GetInfo())
 

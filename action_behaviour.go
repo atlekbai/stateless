@@ -27,7 +27,10 @@ func NewSyncEntryActionBehaviour[TState, TTrigger comparable](
 	}
 }
 
-func (s *SyncEntryActionBehaviour[TState, TTrigger]) Execute(ctx context.Context, transition Transition[TState, TTrigger]) error {
+func (s *SyncEntryActionBehaviour[TState, TTrigger]) Execute(
+	ctx context.Context,
+	transition Transition[TState, TTrigger],
+) error {
 	if s.action != nil {
 		return s.action(ctx, transition)
 	}
@@ -74,13 +77,16 @@ func (s *SyncExitActionBehaviour[TState, TTrigger]) GetDescription() InvocationI
 	return s.description
 }
 
-// ActivateActionBehaviour represents an activation action for a state.
-type ActivateActionBehaviour[TState comparable] interface {
-	// Execute executes the activation action.
+// LifecycleActionBehaviour represents an activation or deactivation action for a state.
+type LifecycleActionBehaviour[TState comparable] interface {
+	// Execute executes the lifecycle action.
 	Execute(ctx context.Context) error
 	// GetDescription returns the description of the action.
 	GetDescription() InvocationInfo
 }
+
+// ActivateActionBehaviour represents an activation action for a state.
+type ActivateActionBehaviour[TState comparable] = LifecycleActionBehaviour[TState]
 
 // SyncActivateActionBehaviour is a synchronous activation action.
 type SyncActivateActionBehaviour[TState comparable] struct {
@@ -111,12 +117,7 @@ func (s *SyncActivateActionBehaviour[TState]) GetDescription() InvocationInfo {
 }
 
 // DeactivateActionBehaviour represents a deactivation action for a state.
-type DeactivateActionBehaviour[TState comparable] interface {
-	// Execute executes the deactivation action.
-	Execute(ctx context.Context) error
-	// GetDescription returns the description of the action.
-	GetDescription() InvocationInfo
-}
+type DeactivateActionBehaviour[TState comparable] = LifecycleActionBehaviour[TState]
 
 // SyncDeactivateActionBehaviour is a synchronous deactivation action.
 type SyncDeactivateActionBehaviour[TState comparable] struct {

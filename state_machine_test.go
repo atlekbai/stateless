@@ -1013,7 +1013,7 @@ func TestConcurrentFire(t *testing.T) {
 		PermitReentry(TriggerY)
 
 	var wg sync.WaitGroup
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -1031,9 +1031,15 @@ func TestImmediateEntryAProcessedBeforeEnterB(t *testing.T) {
 	sm := NewStateMachineWithMode[State, Trigger](StateA, FiringImmediate)
 
 	sm.Configure(StateA).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error { record = append(record, "EnterA"); return nil }).
+		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
+			record = append(record, "EnterA")
+			return nil
+		}).
 		Permit(TriggerX, StateB).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error { record = append(record, "ExitA"); return nil })
+		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error {
+			record = append(record, "ExitA")
+			return nil
+		})
 
 	sm.Configure(StateB).
 		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
@@ -1043,7 +1049,10 @@ func TestImmediateEntryAProcessedBeforeEnterB(t *testing.T) {
 			return nil
 		}).
 		Permit(TriggerY, StateA).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error { record = append(record, "ExitB"); return nil })
+		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error {
+			record = append(record, "ExitB")
+			return nil
+		})
 
 	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -1054,7 +1063,7 @@ func TestImmediateEntryAProcessedBeforeEnterB(t *testing.T) {
 	if len(record) != len(expected) {
 		t.Fatalf("expected %d events, got %d: %v", len(expected), len(record), record)
 	}
-	for i := 0; i < len(expected); i++ {
+	for i := range expected {
 		if record[i] != expected[i] {
 			t.Errorf("expected %s at index %d, got %s", expected[i], i, record[i])
 		}
@@ -1066,9 +1075,15 @@ func TestQueuedEntryAProcessedAfterEnterB(t *testing.T) {
 	sm := NewStateMachineWithMode[State, Trigger](StateA, FiringQueued)
 
 	sm.Configure(StateA).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error { record = append(record, "EnterA"); return nil }).
+		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
+			record = append(record, "EnterA")
+			return nil
+		}).
 		Permit(TriggerX, StateB).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error { record = append(record, "ExitA"); return nil })
+		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error {
+			record = append(record, "ExitA")
+			return nil
+		})
 
 	sm.Configure(StateB).
 		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
@@ -1078,7 +1093,10 @@ func TestQueuedEntryAProcessedAfterEnterB(t *testing.T) {
 			return nil
 		}).
 		Permit(TriggerY, StateA).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error { record = append(record, "ExitB"); return nil })
+		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error {
+			record = append(record, "ExitB")
+			return nil
+		})
 
 	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -1089,7 +1107,7 @@ func TestQueuedEntryAProcessedAfterEnterB(t *testing.T) {
 	if len(record) != len(expected) {
 		t.Fatalf("expected %d events, got %d: %v", len(expected), len(record), record)
 	}
-	for i := 0; i < len(expected); i++ {
+	for i := range expected {
 		if record[i] != expected[i] {
 			t.Errorf("expected %s at index %d, got %s", expected[i], i, record[i])
 		}
@@ -1101,9 +1119,15 @@ func TestImmediateFiringOnEntryEndsUpInCorrectState(t *testing.T) {
 	sm := NewStateMachineWithMode[State, Trigger](StateA, FiringImmediate)
 
 	sm.Configure(StateA).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error { record = append(record, "EnterA"); return nil }).
+		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
+			record = append(record, "EnterA")
+			return nil
+		}).
 		Permit(TriggerX, StateB).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error { record = append(record, "ExitA"); return nil })
+		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error {
+			record = append(record, "ExitA")
+			return nil
+		})
 
 	sm.Configure(StateB).
 		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
@@ -1113,12 +1137,21 @@ func TestImmediateFiringOnEntryEndsUpInCorrectState(t *testing.T) {
 			return nil
 		}).
 		Permit(TriggerX, StateC).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error { record = append(record, "ExitB"); return nil })
+		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error {
+			record = append(record, "ExitB")
+			return nil
+		})
 
 	sm.Configure(StateC).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error { record = append(record, "EnterC"); return nil }).
+		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
+			record = append(record, "EnterC")
+			return nil
+		}).
 		Permit(TriggerX, StateA).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error { record = append(record, "ExitC"); return nil })
+		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error {
+			record = append(record, "ExitC")
+			return nil
+		})
 
 	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -1129,7 +1162,7 @@ func TestImmediateFiringOnEntryEndsUpInCorrectState(t *testing.T) {
 	if len(record) != len(expected) {
 		t.Fatalf("expected %d events, got %d: %v", len(expected), len(record), record)
 	}
-	for i := 0; i < len(expected); i++ {
+	for i := range expected {
 		if record[i] != expected[i] {
 			t.Errorf("expected %s at index %d, got %s", expected[i], i, record[i])
 		}
@@ -1344,14 +1377,30 @@ func TestInitialTransition_WithReentry(t *testing.T) {
 
 	sm.Configure(StateA).
 		InitialTransition(StateB).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error { order++; onEntryStateAfired = order; return nil }).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error { order++; onExitStateAfired = order; return nil }).
+		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
+			order++
+			onEntryStateAfired = order
+			return nil
+		}).
+		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error {
+			order++
+			onExitStateAfired = order
+			return nil
+		}).
 		PermitReentry(TriggerX)
 
 	sm.Configure(StateB).
 		SubstateOf(StateA).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error { order++; onEntryStateBfired = order; return nil }).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error { order++; onExitStateBfired = order; return nil })
+		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
+			order++
+			onEntryStateBfired = order
+			return nil
+		}).
+		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error {
+			order++
+			onExitStateBfired = order
+			return nil
+		})
 
 	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -1429,22 +1478,38 @@ func TestInitialTransition_SubStateOfSubstateOnEntryCountAndOrder(t *testing.T) 
 }
 
 func TestInitialTransition_TransitionEventsOrdering(t *testing.T) {
-	expectedOrdering := []string{"OnExitA", "OnTransitionedStateAStateB", "OnEntryB", "OnTransitionedStateBStateC", "OnEntryC", "OnTransitionCompletedStateAStateC"}
+	expectedOrdering := []string{
+		"OnExitA",
+		"OnTransitionedStateAStateB",
+		"OnEntryB",
+		"OnTransitionedStateBStateC",
+		"OnEntryC",
+		"OnTransitionCompletedStateAStateC",
+	}
 	actualOrdering := []string{}
 
 	sm := NewStateMachine[State, Trigger](StateA)
 
 	sm.Configure(StateA).
 		Permit(TriggerX, StateB).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error { actualOrdering = append(actualOrdering, "OnExitA"); return nil })
+		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error {
+			actualOrdering = append(actualOrdering, "OnExitA")
+			return nil
+		})
 
 	sm.Configure(StateB).
 		InitialTransition(StateC).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error { actualOrdering = append(actualOrdering, "OnEntryB"); return nil })
+		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
+			actualOrdering = append(actualOrdering, "OnEntryB")
+			return nil
+		})
 
 	sm.Configure(StateC).
 		SubstateOf(StateB).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error { actualOrdering = append(actualOrdering, "OnEntryC"); return nil })
+		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
+			actualOrdering = append(actualOrdering, "OnEntryC")
+			return nil
+		})
 
 	sm.OnTransitioned(func(t Transition[State, Trigger]) {
 		actualOrdering = append(actualOrdering, "OnTransitioned"+t.Source.String()+t.Destination.String())
@@ -1465,7 +1530,7 @@ func TestInitialTransition_TransitionEventsOrdering(t *testing.T) {
 	if len(expectedOrdering) != len(actualOrdering) {
 		t.Fatalf("expected %d events, got %d: %v", len(expectedOrdering), len(actualOrdering), actualOrdering)
 	}
-	for i := 0; i < len(expectedOrdering); i++ {
+	for i := range expectedOrdering {
 		if expectedOrdering[i] != actualOrdering[i] {
 			t.Errorf("expected '%s' at index %d, got '%s'", expectedOrdering[i], i, actualOrdering[i])
 		}
@@ -1588,7 +1653,7 @@ func TestWhenActivate(t *testing.T) {
 	if len(expectedOrdering) != len(actualOrdering) {
 		t.Fatalf("expected %d events, got %d: %v", len(expectedOrdering), len(actualOrdering), actualOrdering)
 	}
-	for i := 0; i < len(expectedOrdering); i++ {
+	for i := range expectedOrdering {
 		if expectedOrdering[i] != actualOrdering[i] {
 			t.Errorf("expected %s at index %d, got %s", expectedOrdering[i], i, actualOrdering[i])
 		}
@@ -1650,7 +1715,7 @@ func TestWhenDeactivate(t *testing.T) {
 	if len(expectedOrdering) != len(actualOrdering) {
 		t.Fatalf("expected %d events, got %d: %v", len(expectedOrdering), len(actualOrdering), actualOrdering)
 	}
-	for i := 0; i < len(expectedOrdering); i++ {
+	for i := range expectedOrdering {
 		if expectedOrdering[i] != actualOrdering[i] {
 			t.Errorf("expected %s at index %d, got %s", expectedOrdering[i], i, actualOrdering[i])
 		}
@@ -1706,15 +1771,27 @@ func TestWhenTransitioning(t *testing.T) {
 	sm.Configure(StateA).
 		OnActivate(func(ctx context.Context) error { actualOrdering = append(actualOrdering, "ActivatedA"); return nil }).
 		OnDeactivate(func(ctx context.Context) error { actualOrdering = append(actualOrdering, "DeactivatedA"); return nil }).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error { actualOrdering = append(actualOrdering, "EnteredA"); return nil }).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error { actualOrdering = append(actualOrdering, "ExitedA"); return nil }).
+		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
+			actualOrdering = append(actualOrdering, "EnteredA")
+			return nil
+		}).
+		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error {
+			actualOrdering = append(actualOrdering, "ExitedA")
+			return nil
+		}).
 		Permit(TriggerX, StateB)
 
 	sm.Configure(StateB).
 		OnActivate(func(ctx context.Context) error { actualOrdering = append(actualOrdering, "ActivatedB"); return nil }).
 		OnDeactivate(func(ctx context.Context) error { actualOrdering = append(actualOrdering, "DeactivatedB"); return nil }).
-		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error { actualOrdering = append(actualOrdering, "EnteredB"); return nil }).
-		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error { actualOrdering = append(actualOrdering, "ExitedB"); return nil }).
+		OnEntry(func(ctx context.Context, tr Transition[State, Trigger]) error {
+			actualOrdering = append(actualOrdering, "EnteredB")
+			return nil
+		}).
+		OnExit(func(ctx context.Context, tr Transition[State, Trigger]) error {
+			actualOrdering = append(actualOrdering, "ExitedB")
+			return nil
+		}).
 		Permit(TriggerY, StateA)
 
 	sm.OnTransitioned(func(tr Transition[State, Trigger]) {
@@ -1737,7 +1814,7 @@ func TestWhenTransitioning(t *testing.T) {
 	if len(expectedOrdering) != len(actualOrdering) {
 		t.Fatalf("expected %d events, got %d.\nExpected: %v\nActual: %v", len(expectedOrdering), len(actualOrdering), expectedOrdering, actualOrdering)
 	}
-	for i := 0; i < len(expectedOrdering); i++ {
+	for i := range expectedOrdering {
 		if expectedOrdering[i] != actualOrdering[i] {
 			t.Errorf("expected %s at index %d, got %s", expectedOrdering[i], i, actualOrdering[i])
 		}
@@ -1783,7 +1860,7 @@ func TestWhenTransitioningWithinSameSuperstate(t *testing.T) {
 	if len(expectedOrdering) != len(actualOrdering) {
 		t.Fatalf("expected %d events, got %d.\nExpected: %v\nActual: %v", len(expectedOrdering), len(actualOrdering), expectedOrdering, actualOrdering)
 	}
-	for i := 0; i < len(expectedOrdering); i++ {
+	for i := range expectedOrdering {
 		if expectedOrdering[i] != actualOrdering[i] {
 			t.Errorf("expected %s at index %d, got %s", expectedOrdering[i], i, actualOrdering[i])
 		}
@@ -2281,11 +2358,11 @@ func TestSubstateTransition_GuardOpen_UsesSubstateTransition(t *testing.T) {
 
 func TestMultiLayerSubstates_GuardFallthrough(t *testing.T) {
 	testCases := []struct {
-		name                       string
-		parentGuard                bool
-		childGuard                 bool
-		grandchildGuard            bool
-		expectedState              string
+		name            string
+		parentGuard     bool
+		childGuard      bool
+		grandchildGuard bool
+		expectedState   string
 	}{
 		{"grandchild open only", false, false, true, "GrandchildStateTarget"},
 		{"child open only", false, true, false, "ChildStateTarget"},

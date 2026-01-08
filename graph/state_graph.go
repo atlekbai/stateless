@@ -194,18 +194,15 @@ func (sg *StateGraph) addTransitions(machineInfo *stateless.StateMachineInfo) {
 			// Add transitions from decision node to possible destinations
 			for _, possibleDest := range dyn.PossibleDestinationStates {
 				if toState, exists := sg.States[possibleDest.DestinationState]; exists {
-					dtrans := &DynamicTransition{
-						Transition: &Transition{
-							Trigger:                 dyn.GetTrigger(),
-							SourceState:             fromState,
-							DestinationState:        toState,
-							ExecuteEntryExitActions: true,
-						},
-						Criterion: possibleDest.Criterion,
+					trans := &Transition{
+						Trigger:                 dyn.GetTrigger(),
+						SourceState:             fromState,
+						DestinationState:        toState,
+						ExecuteEntryExitActions: true,
 					}
-					sg.Transitions = append(sg.Transitions, dtrans.Transition)
-					decide.Leaving = append(decide.Leaving, dtrans.Transition)
-					toState.Arriving = append(toState.Arriving, dtrans.Transition)
+					sg.Transitions = append(sg.Transitions, trans)
+					decide.Leaving = append(decide.Leaving, trans)
+					toState.Arriving = append(toState.Arriving, trans)
 				}
 			}
 		}

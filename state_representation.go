@@ -130,7 +130,10 @@ func (sr *StateRepresentation[TState, TTrigger]) CanHandle(trigger TTrigger, arg
 }
 
 // TryFindHandler attempts to find a handler for the specified trigger.
-func (sr *StateRepresentation[TState, TTrigger]) TryFindHandler(trigger TTrigger, args any) *TriggerBehaviourResult[TState, TTrigger] {
+func (sr *StateRepresentation[TState, TTrigger]) TryFindHandler(
+	trigger TTrigger,
+	args any,
+) *TriggerBehaviourResult[TState, TTrigger] {
 	result := sr.TryFindLocalHandler(trigger, args)
 
 	// If no local handler found, or local handler has unmet guards (Handler is nil),

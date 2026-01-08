@@ -39,7 +39,8 @@ type InvalidTransitionError struct {
 func (e *InvalidTransitionError) Error() string {
 	if len(e.UnmetGuards) > 0 {
 		return fmt.Sprintf(
-			"trigger '%v' is valid for transition from state '%v' but guard conditions are not met. Guard conditions: %s",
+			"trigger '%v' is valid for transition from state '%v' "+
+				"but guard conditions are not met. Guard conditions: %s",
 			e.Trigger, e.State, strings.Join(e.UnmetGuards, ", "))
 	}
 

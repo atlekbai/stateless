@@ -109,7 +109,10 @@ func NewStateMachine[TState, TTrigger comparable](initialState TState) *StateMac
 }
 
 // NewStateMachineWithMode creates a new state machine with the specified initial state and firing mode.
-func NewStateMachineWithMode[TState, TTrigger comparable](initialState TState, firingMode FiringMode) *StateMachine[TState, TTrigger] {
+func NewStateMachineWithMode[TState, TTrigger comparable](
+	initialState TState,
+	firingMode FiringMode,
+) *StateMachine[TState, TTrigger] {
 	sm := NewStateMachine[TState, TTrigger](initialState)
 	sm.firingMode = firingMode
 	return sm

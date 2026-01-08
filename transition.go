@@ -21,7 +21,11 @@ type Transition[TState, TTrigger comparable] struct {
 }
 
 // NewTransition creates a new transition.
-func NewTransition[TState, TTrigger comparable](source, destination TState, trigger TTrigger, args any) Transition[TState, TTrigger] {
+func NewTransition[TState, TTrigger comparable](
+	source, destination TState,
+	trigger TTrigger,
+	args any,
+) Transition[TState, TTrigger] {
 	return Transition[TState, TTrigger]{
 		Source:      source,
 		Destination: destination,

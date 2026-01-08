@@ -37,7 +37,10 @@ func (sc *StateConfiguration[TState, TTrigger]) State() TState {
 
 // Permit configures the state to transition to the specified destination state
 // when the specified trigger is fired.
-func (sc *StateConfiguration[TState, TTrigger]) Permit(trigger TTrigger, destinationState TState) *StateConfiguration[TState, TTrigger] {
+func (sc *StateConfiguration[TState, TTrigger]) Permit(
+	trigger TTrigger,
+	destinationState TState,
+) *StateConfiguration[TState, TTrigger] {
 	sc.enforceNotIdentityTransition(destinationState)
 	sc.representation.AddTriggerBehaviour(
 		NewTransitioningTriggerBehaviour(trigger, destinationState, EmptyTransitionGuard),

@@ -160,7 +160,10 @@ func NewSyncInternalTriggerBehaviour[TState, TTrigger comparable](
 }
 
 // Execute executes the internal action.
-func (s *SyncInternalTriggerBehaviour[TState, TTrigger]) Execute(ctx context.Context, transition Transition[TState, TTrigger]) error {
+func (s *SyncInternalTriggerBehaviour[TState, TTrigger]) Execute(
+	ctx context.Context,
+	transition Transition[TState, TTrigger],
+) error {
 	if s.internalAction != nil {
 		return s.internalAction(ctx, transition)
 	}
