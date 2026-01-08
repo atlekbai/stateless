@@ -104,8 +104,6 @@ stateDiagram-v2
     StateA --> StateB: TriggerX
 ```
 
-> [!NOTE]
-> This creates a simple one-way transition. StateA can move to StateB when TriggerX fires.
 
 ### Conditional Transitions (Guards)
 
@@ -136,16 +134,7 @@ return fmt.Errorf("database error: %w", err)
 stateDiagram-v2
     direction LR
     StateA --> StateB: TriggerX [Function]
-
-    note right of StateA
-        Guard function evaluates before transition
-        Returns nil: transition proceeds to StateB
-        Returns error: stays in StateA, Fire() returns error
-    end note
 ```
-
-> [!TIP]
-> Guards are perfect for modeling business rules. When a guard fails, the state machine stays in the current state and Fire() returns an error - there's no automatic self-transition.
 
 ### Ignored Triggers
 
@@ -160,9 +149,9 @@ stateDiagram-v2
     StateA --> StateA: TriggerX
 
     note right of StateA
-        TriggerX is ignored - shown as self-loop
-        Fire(TriggerX) succeeds but does nothing
-        No error, no state change, no actions
+TriggerX is ignored - shown as self-loop
+Fire(TriggerX) succeeds but does nothing
+No error, no state change, no actions
     end note
 ```
 
@@ -180,11 +169,6 @@ sm.Configure(StateA).
 stateDiagram-v2
     direction LR
     StateA --> StateA: TriggerX (reentry)
-
-    note right of StateA
-        Fires OnExit, then OnEntry
-        Useful for resetting state
-    end note
 ```
 
 > [!NOTE]
@@ -200,22 +184,6 @@ sm.Configure(StateA).
         return nil
     })
 ```
-
-```mermaid
-stateDiagram-v2
-    direction LR
-    StateA --> StateA: TriggerX
-
-    note right of StateA
-        Internal transition - shown as self-loop
-        No OnExit/OnEntry actions fired
-        Executes InternalTransition action only
-        Differs from PermitReentry
-    end note
-```
-
-> [!TIP]
-> Internal transitions are perfect for handling events that don't change state but need to perform actions (e.g., logging, counters, notifications). Unlike reentry transitions, they don't fire OnExit/OnEntry actions.
 
 ### Dynamic Transitions
 
@@ -240,13 +208,6 @@ stateDiagram-v2
     direction LR
     StateA --> StateB: TriggerX
     StateA --> StateC: TriggerX
-
-    note right of StateA
-        Destination determined at runtime
-        StateSelector function chooses StateB or StateC
-        Based on context and arguments
-        Only one transition occurs per Fire()
-    end note
 ```
 
 > [!NOTE]
@@ -281,16 +242,6 @@ sm.Configure(StateB).
 stateDiagram-v2
     direction LR
     StateA --> StateB: TriggerX
-
-    note left of StateA
-        1. OnExit(StateA) fires
-        Access: t.Source, t.Destination, t.Trigger, t.Args
-    end note
-
-    note right of StateB
-        2. OnEntry(StateB) fires
-        Access: t.Source, t.Destination, t.Trigger, t.Args
-    end note
 ```
 
 > [!NOTE]
@@ -320,12 +271,6 @@ stateDiagram-v2
     state StateB {
         StateC
     }
-
-    note right of StateB
-        StateC is a substate of StateB
-        Inherits TriggerX -> StateA transition
-        IsInState(StateB) returns true when in StateC
-    end note
 ```
 
 > [!NOTE]
@@ -418,9 +363,6 @@ sm := stateless.NewStateMachineWithExternalStorage[State, Trigger](
     func(s State) { currentState = s },       // Mutator
 )
 ```
-
-> [!CAUTION]
-> When using external state storage, ensure your accessor and mutator functions are thread-safe if using concurrent access. The state machine will not manage synchronization for external state.
 
 ## Introspection
 
@@ -565,12 +507,6 @@ stateDiagram-v2
     state Connected {
         OnHold
     }
-
-    note right of Connected
-        OnHold is a substate of Connected
-        Inherits HungUp -> OffHook transition
-        OnEntry action logs "Call connected!"
-    end note
 ```
 
 > [!TIP]
