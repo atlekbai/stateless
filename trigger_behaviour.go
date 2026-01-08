@@ -1,0 +1,175 @@
+package stateless
+
+import "context"
+
+// TriggerBehaviour is the base interface for all trigger behaviours.
+type TriggerBehaviour[TState, TTrigger comparable] interface {
+	// GetTrigger returns the trigger associated with this behaviour.
+	GetTrigger() TTrigger
+
+	// GetGuard returns the transition guard for this trigger.
+	GetGuard() TransitionGuard
+
+	// GuardConditionsMet returns nil if all guard conditions are met, or an error describing why the guard failed.
+	GuardConditionsMet(ctx context.Context, args any) error
+}
+
+// triggerBehaviourBase provides the base implementation for trigger behaviours.
+type triggerBehaviourBase[TState, TTrigger comparable] struct {
+	trigger TTrigger
+	guard   TransitionGuard
+}
+
+func (t *triggerBehaviourBase[TState, TTrigger]) GetTrigger() TTrigger {
+	return t.trigger
+}
+
+func (t *triggerBehaviourBase[TState, TTrigger]) GetGuard() TransitionGuard {
+	return t.guard
+}
+
+func (t *triggerBehaviourBase[TState, TTrigger]) GuardConditionsMet(ctx context.Context, args any) error {
+	return t.guard.GuardConditionsMet(ctx, args)
+}
+
+// TransitioningTriggerBehaviour represents a transition to a fixed destination state.
+type TransitioningTriggerBehaviour[TState, TTrigger comparable] struct {
+	triggerBehaviourBase[TState, TTrigger]
+
+	Destination TState
+}
+
+// NewTransitioningTriggerBehaviour creates a new transitioning trigger behaviour.
+func NewTransitioningTriggerBehaviour[TState, TTrigger comparable](
+	tr TTrigger,
+	dst TState,
+	tg TransitionGuard,
+) *TransitioningTriggerBehaviour[TState, TTrigger] {
+	return &TransitioningTriggerBehaviour[TState, TTrigger]{
+		triggerBehaviourBase: triggerBehaviourBase[TState, TTrigger]{
+			trigger: tr,
+			guard:   tg,
+		},
+		Destination: dst,
+	}
+}
+
+// ReentryTriggerBehaviour represents a reentry transition (state exits and re-enters itself).
+type ReentryTriggerBehaviour[TState, TTrigger comparable] struct {
+	triggerBehaviourBase[TState, TTrigger]
+
+	Destination TState
+}
+
+// NewReentryTriggerBehaviour creates a new reentry trigger behaviour.
+func NewReentryTriggerBehaviour[TState, TTrigger comparable](
+	tr TTrigger,
+	dst TState,
+	tg TransitionGuard,
+) *ReentryTriggerBehaviour[TState, TTrigger] {
+	return &ReentryTriggerBehaviour[TState, TTrigger]{
+		triggerBehaviourBase: triggerBehaviourBase[TState, TTrigger]{
+			trigger: tr,
+			guard:   tg,
+		},
+		Destination: dst,
+	}
+}
+
+// IgnoredTriggerBehaviour represents a trigger that should be ignored.
+type IgnoredTriggerBehaviour[TState, TTrigger comparable] struct {
+	triggerBehaviourBase[TState, TTrigger]
+}
+
+// NewIgnoredTriggerBehaviour creates a new ignored trigger behaviour.
+func NewIgnoredTriggerBehaviour[TState, TTrigger comparable](
+	tr TTrigger,
+	tg TransitionGuard,
+) *IgnoredTriggerBehaviour[TState, TTrigger] {
+	return &IgnoredTriggerBehaviour[TState, TTrigger]{
+		triggerBehaviourBase: triggerBehaviourBase[TState, TTrigger]{
+			trigger: tr,
+			guard:   tg,
+		},
+	}
+}
+
+// DynamicTriggerBehaviour represents a transition to a dynamically determined state.
+type DynamicTriggerBehaviour[TState, TTrigger comparable] struct {
+	triggerBehaviourBase[TState, TTrigger]
+
+	destination    StateSelector[TState]
+	TransitionInfo DynamicTransitionInfo
+}
+
+// NewDynamicTriggerBehaviour creates a new dynamic trigger behaviour.
+func NewDynamicTriggerBehaviour[TState, TTrigger comparable](
+	tr TTrigger,
+	ss StateSelector[TState],
+	tg TransitionGuard,
+	info DynamicTransitionInfo,
+) *DynamicTriggerBehaviour[TState, TTrigger] {
+	return &DynamicTriggerBehaviour[TState, TTrigger]{
+		triggerBehaviourBase: triggerBehaviourBase[TState, TTrigger]{
+			trigger: tr,
+			guard:   tg,
+		},
+		destination:    ss,
+		TransitionInfo: info,
+	}
+}
+
+// GetDestinationState returns the destination state based on the given arguments.
+// Returns an error if the destination cannot be determined.
+func (d *DynamicTriggerBehaviour[TState, TTrigger]) GetDestinationState(ctx context.Context, args any) (TState, error) {
+	return d.destination(ctx, args)
+}
+
+// InternalTriggerBehaviour represents an internal transition that doesn't exit/enter the state.
+type InternalTriggerBehaviour[TState, TTrigger comparable] struct {
+	triggerBehaviourBase[TState, TTrigger]
+
+	internalAction TransitionAction[TState, TTrigger]
+}
+
+// NewInternalTriggerBehaviour creates a new internal trigger behaviour.
+func NewInternalTriggerBehaviour[TState, TTrigger comparable](
+	tr TTrigger,
+	tg TransitionGuard,
+	act TransitionAction[TState, TTrigger],
+) *InternalTriggerBehaviour[TState, TTrigger] {
+	return &InternalTriggerBehaviour[TState, TTrigger]{
+		triggerBehaviourBase: triggerBehaviourBase[TState, TTrigger]{
+			trigger: tr,
+			guard:   tg,
+		},
+		internalAction: act,
+	}
+}
+
+// Execute executes the internal action.
+func (s *InternalTriggerBehaviour[TState, TTrigger]) Execute(
+	ctx context.Context,
+	t Transition[TState, TTrigger],
+) error {
+	if s.internalAction != nil {
+		return s.internalAction(ctx, t)
+	}
+	return nil
+}
+
+// TriggerBehaviourResult represents the result of finding a trigger behaviour.
+type TriggerBehaviourResult[TState, TTrigger comparable] struct {
+	// Handler is the trigger behaviour that was found.
+	Handler TriggerBehaviour[TState, TTrigger]
+
+	// UnmetGuardConditions contains expected guard rejections (GuardRejection errors).
+	UnmetGuardConditions []error
+
+	// UnexpectedError contains an unexpected error that occurred during guard evaluation.
+	// This should be propagated to the caller rather than treated as "guard not met".
+	UnexpectedError error
+
+	// MultipleHandlersFound indicates if multiple handlers matched (configuration error).
+	MultipleHandlersFound bool
+}

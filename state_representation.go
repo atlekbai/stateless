@@ -1,0 +1,413 @@
+package stateless
+
+import (
+	"context"
+	"fmt"
+	"slices"
+)
+
+// StateRepresentation models the behaviour of a state.
+type StateRepresentation[TState, TTrigger comparable] struct {
+	state TState
+
+	// superstate is the parent state (nil if this is a root state).
+	superstate *StateRepresentation[TState, TTrigger]
+
+	// substates are the child states of this state.
+	substates []*StateRepresentation[TState, TTrigger]
+
+	// triggerBehaviours maps triggers to their behaviours.
+	triggerBehaviours map[TTrigger][]TriggerBehaviour[TState, TTrigger]
+
+	// entryActions are executed when entering this state.
+	entryActions []*EntryActionBehaviour[TState, TTrigger]
+
+	// exitActions are executed when leaving this state.
+	exitActions []*ExitActionBehaviour[TState, TTrigger]
+
+	// activateActions are executed when this state is activated.
+	activateActions []*ActivateActionBehaviour[TState]
+
+	// deactivateActions are executed when this state is deactivated.
+	deactivateActions []*DeactivateActionBehaviour[TState]
+
+	// hasInitialTransition indicates if this state has an initial transition configured.
+	hasInitialTransition bool
+
+	// initialTransitionTarget is the target state for the initial transition.
+	initialTransitionTarget TState
+}
+
+// NewStateRepresentation creates a new state representation.
+func NewStateRepresentation[TState, TTrigger comparable](state TState) *StateRepresentation[TState, TTrigger] {
+	return &StateRepresentation[TState, TTrigger]{
+		state:             state,
+		triggerBehaviours: make(map[TTrigger][]TriggerBehaviour[TState, TTrigger]),
+	}
+}
+
+// UnderlyingState returns the state this representation models.
+func (sr *StateRepresentation[TState, TTrigger]) UnderlyingState() TState {
+	return sr.state
+}
+
+// Superstate returns the parent state, if any.
+func (sr *StateRepresentation[TState, TTrigger]) Superstate() *StateRepresentation[TState, TTrigger] {
+	return sr.superstate
+}
+
+// SetSuperstate sets the parent state.
+func (sr *StateRepresentation[TState, TTrigger]) SetSuperstate(superstate *StateRepresentation[TState, TTrigger]) {
+	sr.superstate = superstate
+}
+
+// GetSubstates returns the substates of this state.
+func (sr *StateRepresentation[TState, TTrigger]) GetSubstates() []*StateRepresentation[TState, TTrigger] {
+	return sr.substates
+}
+
+// AddSubstate adds a substate to this state.
+func (sr *StateRepresentation[TState, TTrigger]) AddSubstate(substate *StateRepresentation[TState, TTrigger]) {
+	sr.substates = append(sr.substates, substate)
+}
+
+// IsSubstateOf returns true if this state is a substate of the given state.
+func (sr *StateRepresentation[TState, TTrigger]) IsSubstateOf(state TState) bool {
+	if sr.superstate == nil {
+		return false
+	}
+	if sr.superstate.UnderlyingState() == state {
+		return true
+	}
+	return sr.superstate.IsSubstateOf(state)
+}
+
+// TriggerBehaviours returns the trigger behaviours map.
+func (sr *StateRepresentation[TState, TTrigger]) TriggerBehaviours() map[TTrigger][]TriggerBehaviour[TState, TTrigger] {
+	return sr.triggerBehaviours
+}
+
+// EntryActions returns the entry actions.
+func (sr *StateRepresentation[TState, TTrigger]) EntryActions() []*EntryActionBehaviour[TState, TTrigger] {
+	return sr.entryActions
+}
+
+// ExitActions returns the exit actions.
+func (sr *StateRepresentation[TState, TTrigger]) ExitActions() []*ExitActionBehaviour[TState, TTrigger] {
+	return sr.exitActions
+}
+
+// ActivateActions returns the activate actions.
+func (sr *StateRepresentation[TState, TTrigger]) ActivateActions() []*ActivateActionBehaviour[TState] {
+	return sr.activateActions
+}
+
+// DeactivateActions returns the deactivate actions.
+func (sr *StateRepresentation[TState, TTrigger]) DeactivateActions() []*DeactivateActionBehaviour[TState] {
+	return sr.deactivateActions
+}
+
+// HasInitialTransition returns true if this state has an initial transition configured.
+func (sr *StateRepresentation[TState, TTrigger]) HasInitialTransition() bool {
+	return sr.hasInitialTransition
+}
+
+// InitialTransitionTarget returns the target state for the initial transition.
+func (sr *StateRepresentation[TState, TTrigger]) InitialTransitionTarget() TState {
+	return sr.initialTransitionTarget
+}
+
+// SetInitialTransition sets the initial transition for this state.
+func (sr *StateRepresentation[TState, TTrigger]) SetInitialTransition(target TState) {
+	sr.hasInitialTransition = true
+	sr.initialTransitionTarget = target
+}
+
+// CanHandle returns true if this state can handle the specified trigger.
+func (sr *StateRepresentation[TState, TTrigger]) CanHandle(ctx context.Context, trigger TTrigger, args any) bool {
+	result := sr.TryFindHandler(ctx, trigger, args)
+	return result != nil && result.Handler != nil
+}
+
+// TryFindHandler attempts to find a handler for the specified trigger.
+func (sr *StateRepresentation[TState, TTrigger]) TryFindHandler(
+	ctx context.Context,
+	trigger TTrigger,
+	args any,
+) *TriggerBehaviourResult[TState, TTrigger] {
+	result := sr.TryFindLocalHandler(ctx, trigger, args)
+
+	// If no local handler found, or local handler has unmet guards (Handler is nil),
+	// check superstate for a handler
+	if sr.superstate != nil && (result == nil || result.Handler == nil) {
+		superstateResult := sr.superstate.TryFindHandler(ctx, trigger, args)
+		// If superstate has a valid handler, use it
+		if superstateResult != nil && superstateResult.Handler != nil {
+			return superstateResult
+		}
+		// If no result from local, use superstate result (even if no handler)
+		if result == nil {
+			return superstateResult
+		}
+	}
+	return result
+}
+
+// TryFindLocalHandler attempts to find a local handler for the specified trigger.
+func (sr *StateRepresentation[TState, TTrigger]) TryFindLocalHandler(
+	ctx context.Context,
+	trigger TTrigger,
+	args any,
+) *TriggerBehaviourResult[TState, TTrigger] {
+	behaviours, exists := sr.triggerBehaviours[trigger]
+	if !exists {
+		return nil
+	}
+
+	// Evaluate guards, separating expected rejections from unexpected errors
+	var rejections []error
+	var possibleBehaviours []TriggerBehaviour[TState, TTrigger]
+
+	for _, behaviour := range behaviours {
+		if err := behaviour.GuardConditionsMet(ctx, args); err == nil {
+			possibleBehaviours = append(possibleBehaviours, behaviour)
+		} else if IsGuardRejection(err) {
+			// Expected rejection - guard intentionally blocked
+			rejections = append(rejections, err)
+		} else {
+			// Unexpected error - propagate immediately
+			return &TriggerBehaviourResult[TState, TTrigger]{
+				Handler:         nil,
+				UnexpectedError: err,
+			}
+		}
+	}
+
+	if len(possibleBehaviours) > 1 {
+		// Multiple handlers met guard conditions - this is a configuration error
+		return &TriggerBehaviourResult[TState, TTrigger]{
+			Handler:               nil,
+			MultipleHandlersFound: true,
+		}
+	}
+
+	if len(possibleBehaviours) == 1 {
+		return &TriggerBehaviourResult[TState, TTrigger]{
+			Handler:              possibleBehaviours[0],
+			UnmetGuardConditions: nil,
+		}
+	}
+
+	// No handlers met guard conditions, return rejections
+	return &TriggerBehaviourResult[TState, TTrigger]{
+		Handler:              nil,
+		UnmetGuardConditions: rejections,
+	}
+}
+
+// AddTriggerBehaviour adds a trigger behaviour to this state.
+func (sr *StateRepresentation[TState, TTrigger]) AddTriggerBehaviour(behaviour TriggerBehaviour[TState, TTrigger]) {
+	trigger := behaviour.GetTrigger()
+	sr.triggerBehaviours[trigger] = append(sr.triggerBehaviours[trigger], behaviour)
+}
+
+// AddEntryAction adds an entry action to this state.
+func (sr *StateRepresentation[TState, TTrigger]) AddEntryAction(action *EntryActionBehaviour[TState, TTrigger]) {
+	sr.entryActions = append(sr.entryActions, action)
+}
+
+// AddExitAction adds an exit action to this state.
+func (sr *StateRepresentation[TState, TTrigger]) AddExitAction(action *ExitActionBehaviour[TState, TTrigger]) {
+	sr.exitActions = append(sr.exitActions, action)
+}
+
+// AddActivateAction adds an activate action to this state.
+func (sr *StateRepresentation[TState, TTrigger]) AddActivateAction(action *ActivateActionBehaviour[TState]) {
+	sr.activateActions = append(sr.activateActions, action)
+}
+
+// AddDeactivateAction adds a deactivate action to this state.
+func (sr *StateRepresentation[TState, TTrigger]) AddDeactivateAction(action *DeactivateActionBehaviour[TState]) {
+	sr.deactivateActions = append(sr.deactivateActions, action)
+}
+
+// Enter executes entry actions for this state.
+func (sr *StateRepresentation[TState, TTrigger]) Enter(
+	ctx context.Context,
+	transition Transition[TState, TTrigger],
+) error {
+	// Reentry - execute entry actions for this state only
+	if transition.Source == transition.Destination {
+		return sr.ExecuteEntryActions(ctx, transition)
+	}
+
+	// If source is not in this state's hierarchy, we need to enter
+	if !sr.Includes(transition.Source) {
+		// For initial transitions, don't enter superstate (we're already in it)
+		// For regular transitions, enter superstate first
+		if sr.superstate != nil && !transition.IsInitial() {
+			if err := sr.superstate.Enter(ctx, transition); err != nil {
+				return err
+			}
+		}
+		return sr.ExecuteEntryActions(ctx, transition)
+	}
+
+	// Note: When transitioning from a child state to its parent state,
+	// entry actions are NOT executed because hierarchically you never
+	// "left" the parent state. This matches .NET Stateless behavior.
+	// See: https://github.com/qmuntal/stateless/issues/98
+	// If you need entry actions to fire, use PermitReentry instead.
+
+	return nil
+}
+
+// Exit executes exit actions for this state.
+func (sr *StateRepresentation[TState, TTrigger]) Exit(
+	ctx context.Context,
+	transition Transition[TState, TTrigger],
+) error {
+	if transition.Source == transition.Destination {
+		return sr.ExecuteExitActions(ctx, transition)
+	}
+
+	if !sr.Includes(transition.Destination) {
+		if err := sr.ExecuteExitActions(ctx, transition); err != nil {
+			return err
+		}
+		if sr.superstate != nil {
+			return sr.superstate.Exit(ctx, transition)
+		}
+	}
+
+	return nil
+}
+
+// ExecuteEntryActions executes all entry actions for this state.
+func (sr *StateRepresentation[TState, TTrigger]) ExecuteEntryActions(
+	ctx context.Context,
+	transition Transition[TState, TTrigger],
+) error {
+	for _, action := range sr.entryActions {
+		if err := action.Execute(ctx, transition); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ExecuteExitActions executes all exit actions for this state.
+func (sr *StateRepresentation[TState, TTrigger]) ExecuteExitActions(
+	ctx context.Context,
+	transition Transition[TState, TTrigger],
+) error {
+	for _, action := range sr.exitActions {
+		if err := action.Execute(ctx, transition); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Activate executes activation actions for this state and its superstates.
+func (sr *StateRepresentation[TState, TTrigger]) Activate(ctx context.Context) error {
+	if sr.superstate != nil {
+		if err := sr.superstate.Activate(ctx); err != nil {
+			return err
+		}
+	}
+
+	return sr.ExecuteActivateActions(ctx)
+}
+
+// Deactivate executes deactivation actions for this state and its superstates.
+func (sr *StateRepresentation[TState, TTrigger]) Deactivate(ctx context.Context) error {
+	if err := sr.ExecuteDeactivateActions(ctx); err != nil {
+		return err
+	}
+
+	if sr.superstate != nil {
+		return sr.superstate.Deactivate(ctx)
+	}
+
+	return nil
+}
+
+// ExecuteActivateActions executes all activation actions for this state.
+func (sr *StateRepresentation[TState, TTrigger]) ExecuteActivateActions(ctx context.Context) error {
+	for _, action := range sr.activateActions {
+		if err := action.Execute(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ExecuteDeactivateActions executes all deactivation actions for this state.
+func (sr *StateRepresentation[TState, TTrigger]) ExecuteDeactivateActions(ctx context.Context) error {
+	for _, action := range sr.deactivateActions {
+		if err := action.Execute(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Includes returns true if this state or any of its substates is the specified state.
+func (sr *StateRepresentation[TState, TTrigger]) Includes(state TState) bool {
+	if sr.state == state {
+		return true
+	}
+	for _, substate := range sr.substates {
+		if substate.Includes(state) {
+			return true
+		}
+	}
+	return false
+}
+
+// IsIncludedIn returns true if this state is the specified state or a substate of it.
+func (sr *StateRepresentation[TState, TTrigger]) IsIncludedIn(state TState) bool {
+	if sr.state == state {
+		return true
+	}
+	if sr.superstate != nil {
+		return sr.superstate.IsIncludedIn(state)
+	}
+	return false
+}
+
+// GetPermittedTriggers returns the triggers that are currently permitted from this state.
+func (sr *StateRepresentation[TState, TTrigger]) GetPermittedTriggers(ctx context.Context, args any) []TTrigger {
+	result := sr.GetLocalPermittedTriggers(ctx, args)
+
+	if sr.superstate != nil {
+		superTriggers := sr.superstate.GetPermittedTriggers(ctx, args)
+		for _, trigger := range superTriggers {
+			if !slices.Contains(result, trigger) {
+				result = append(result, trigger)
+			}
+		}
+	}
+
+	return result
+}
+
+// GetLocalPermittedTriggers returns the triggers that are permitted from this state (not including superstates).
+func (sr *StateRepresentation[TState, TTrigger]) GetLocalPermittedTriggers(ctx context.Context, args any) []TTrigger {
+	var result []TTrigger
+	for trigger, behaviours := range sr.triggerBehaviours {
+		for _, behaviour := range behaviours {
+			if behaviour.GuardConditionsMet(ctx, args) == nil {
+				result = append(result, trigger)
+				break
+			}
+		}
+	}
+	return result
+}
+
+// String returns a string representation of this state.
+func (sr *StateRepresentation[TState, TTrigger]) String() string {
+	return fmt.Sprintf("%v", sr.state)
+}
