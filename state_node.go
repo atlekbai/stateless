@@ -170,7 +170,7 @@ func (sn *StateNode[TState, TTrigger]) InternalTransitionIf(
 //	})
 func (sn *StateNode[TState, TTrigger]) OnEntry(act TransitionAction[TState, TTrigger]) *StateNode[TState, TTrigger] {
 	sn.representation.AddEntryAction(
-		NewSyncEntryActionBehaviour(act, CreateInvocationInfo(act, "")),
+		NewEntryActionBehaviour(act, CreateInvocationInfo(act, "")),
 	)
 	return sn
 }
@@ -179,7 +179,7 @@ func (sn *StateNode[TState, TTrigger]) OnEntry(act TransitionAction[TState, TTri
 // The action receives the transition information including source, destination, trigger, and args.
 func (sn *StateNode[TState, TTrigger]) OnExit(act TransitionAction[TState, TTrigger]) *StateNode[TState, TTrigger] {
 	sn.representation.AddExitAction(
-		NewSyncExitActionBehaviour(act, CreateInvocationInfo(act, "")),
+		NewExitActionBehaviour(act, CreateInvocationInfo(act, "")),
 	)
 	return sn
 }
@@ -188,7 +188,7 @@ func (sn *StateNode[TState, TTrigger]) OnExit(act TransitionAction[TState, TTrig
 // and this state is the current state.
 func (sn *StateNode[TState, TTrigger]) OnActivate(act func(ctx context.Context) error) *StateNode[TState, TTrigger] {
 	sn.representation.AddActivateAction(
-		NewSyncActivateActionBehaviour[TState](act, CreateInvocationInfo(act, "")),
+		NewActivateActionBehaviour[TState](act, CreateInvocationInfo(act, "")),
 	)
 	return sn
 }
@@ -197,7 +197,7 @@ func (sn *StateNode[TState, TTrigger]) OnActivate(act func(ctx context.Context) 
 // and this state is the current state.
 func (sn *StateNode[TState, TTrigger]) OnDeactivate(act func(ctx context.Context) error) *StateNode[TState, TTrigger] {
 	sn.representation.AddDeactivateAction(
-		NewSyncDeactivateActionBehaviour[TState](act, CreateInvocationInfo(act, "")),
+		NewDeactivateActionBehaviour[TState](act, CreateInvocationInfo(act, "")),
 	)
 	return sn
 }

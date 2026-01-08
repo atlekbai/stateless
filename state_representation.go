@@ -20,16 +20,16 @@ type StateRepresentation[TState, TTrigger comparable] struct {
 	triggerBehaviours map[TTrigger][]TriggerBehaviour[TState, TTrigger]
 
 	// entryActions are executed when entering this state.
-	entryActions []EntryActionBehaviour[TState, TTrigger]
+	entryActions []*EntryActionBehaviour[TState, TTrigger]
 
 	// exitActions are executed when leaving this state.
-	exitActions []ExitActionBehaviour[TState, TTrigger]
+	exitActions []*ExitActionBehaviour[TState, TTrigger]
 
 	// activateActions are executed when this state is activated.
-	activateActions []ActivateActionBehaviour[TState]
+	activateActions []*ActivateActionBehaviour[TState]
 
 	// deactivateActions are executed when this state is deactivated.
-	deactivateActions []DeactivateActionBehaviour[TState]
+	deactivateActions []*DeactivateActionBehaviour[TState]
 
 	// hasInitialTransition indicates if this state has an initial transition configured.
 	hasInitialTransition bool
@@ -88,22 +88,22 @@ func (sr *StateRepresentation[TState, TTrigger]) TriggerBehaviours() map[TTrigge
 }
 
 // EntryActions returns the entry actions.
-func (sr *StateRepresentation[TState, TTrigger]) EntryActions() []EntryActionBehaviour[TState, TTrigger] {
+func (sr *StateRepresentation[TState, TTrigger]) EntryActions() []*EntryActionBehaviour[TState, TTrigger] {
 	return sr.entryActions
 }
 
 // ExitActions returns the exit actions.
-func (sr *StateRepresentation[TState, TTrigger]) ExitActions() []ExitActionBehaviour[TState, TTrigger] {
+func (sr *StateRepresentation[TState, TTrigger]) ExitActions() []*ExitActionBehaviour[TState, TTrigger] {
 	return sr.exitActions
 }
 
 // ActivateActions returns the activate actions.
-func (sr *StateRepresentation[TState, TTrigger]) ActivateActions() []ActivateActionBehaviour[TState] {
+func (sr *StateRepresentation[TState, TTrigger]) ActivateActions() []*ActivateActionBehaviour[TState] {
 	return sr.activateActions
 }
 
 // DeactivateActions returns the deactivate actions.
-func (sr *StateRepresentation[TState, TTrigger]) DeactivateActions() []DeactivateActionBehaviour[TState] {
+func (sr *StateRepresentation[TState, TTrigger]) DeactivateActions() []*DeactivateActionBehaviour[TState] {
 	return sr.deactivateActions
 }
 
@@ -206,22 +206,22 @@ func (sr *StateRepresentation[TState, TTrigger]) AddTriggerBehaviour(behaviour T
 }
 
 // AddEntryAction adds an entry action to this state.
-func (sr *StateRepresentation[TState, TTrigger]) AddEntryAction(action EntryActionBehaviour[TState, TTrigger]) {
+func (sr *StateRepresentation[TState, TTrigger]) AddEntryAction(action *EntryActionBehaviour[TState, TTrigger]) {
 	sr.entryActions = append(sr.entryActions, action)
 }
 
 // AddExitAction adds an exit action to this state.
-func (sr *StateRepresentation[TState, TTrigger]) AddExitAction(action ExitActionBehaviour[TState, TTrigger]) {
+func (sr *StateRepresentation[TState, TTrigger]) AddExitAction(action *ExitActionBehaviour[TState, TTrigger]) {
 	sr.exitActions = append(sr.exitActions, action)
 }
 
 // AddActivateAction adds an activate action to this state.
-func (sr *StateRepresentation[TState, TTrigger]) AddActivateAction(action ActivateActionBehaviour[TState]) {
+func (sr *StateRepresentation[TState, TTrigger]) AddActivateAction(action *ActivateActionBehaviour[TState]) {
 	sr.activateActions = append(sr.activateActions, action)
 }
 
 // AddDeactivateAction adds a deactivate action to this state.
-func (sr *StateRepresentation[TState, TTrigger]) AddDeactivateAction(action DeactivateActionBehaviour[TState]) {
+func (sr *StateRepresentation[TState, TTrigger]) AddDeactivateAction(action *DeactivateActionBehaviour[TState]) {
 	sr.deactivateActions = append(sr.deactivateActions, action)
 }
 
