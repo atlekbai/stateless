@@ -74,18 +74,18 @@ func (e *ParameterConversionError) Error() string {
 	return e.Message
 }
 
-// GuardRejection represents an expected guard rejection.
+// GuardRejectionError represents an expected guard rejection.
 // Use this to indicate that a guard intentionally blocked a transition,
 // as opposed to an unexpected error during guard evaluation.
-type GuardRejection struct {
+type GuardRejectionError struct {
 	Reason string
 }
 
-func (e *GuardRejection) Error() string {
+func (e *GuardRejectionError) Error() string {
 	return e.Reason
 }
 
-// Reject creates a GuardRejection with the given reason.
+// Reject creates a GuardRejectionError with the given reason.
 // Use this in guard functions to indicate an expected rejection:
 //
 //	PermitIf(TriggerX, StateB, func(_ any) error {
@@ -95,13 +95,13 @@ func (e *GuardRejection) Error() string {
 //	    return nil
 //	})
 func Reject(reason string) error {
-	return &GuardRejection{Reason: reason}
+	return &GuardRejectionError{Reason: reason}
 }
 
-// IsGuardRejection returns true if the error is or contains a GuardRejection (expected rejection).
+// IsGuardRejection returns true if the error is or contains a GuardRejectionError (expected rejection).
 // Returns false for unexpected errors that occurred during guard evaluation.
 // Uses errors.As to handle wrapped errors (e.g., from errors.Join).
 func IsGuardRejection(err error) bool {
-	var rejection *GuardRejection
+	var rejection *GuardRejectionError
 	return errors.As(err, &rejection)
 }
