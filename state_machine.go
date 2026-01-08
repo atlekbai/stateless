@@ -101,7 +101,7 @@ func (e *OnTransitionedEvent[TState, TTrigger]) Invoke(transition Transition[TSt
 
 // NewStateMachine creates a new state machine with the specified initial state.
 func NewStateMachine[TState, TTrigger comparable](initialState TState) *StateMachine[TState, TTrigger] {
-	var state TState = initialState
+	state := initialState
 	return NewStateMachineWithExternalStorage[TState, TTrigger](
 		func() TState { return state },
 		func(s TState) { state = s },

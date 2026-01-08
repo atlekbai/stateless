@@ -89,75 +89,20 @@ func (s *UmlDotGraphStyle) FormatOneDecisionNode(nodeName, label string) string 
 }
 
 // FormatAllTransitions formats all transitions.
-func (s *UmlDotGraphStyle) FormatAllTransitions(transitions []*Transition, decisions []*Decision) []string {
-	var lines []string
-
-	for _, transit := range transitions {
-		var line string
-
-		// Determine if this is a stay transition
-		if transit.SourceState == transit.DestinationState {
-			// Stay transition
-			var actions []string
-			if transit.ExecuteEntryExitActions {
-				for _, act := range transit.DestinationEntryActions {
-					actions = append(actions, act.Description())
-				}
-			}
-
-			var guards []string
-			for _, g := range transit.Guards {
-				guards = append(guards, g.Description())
-			}
-
-			if !transit.ExecuteEntryExitActions {
-				line = s.FormatOneTransition(
-					transit.SourceState.NodeName,
-					fmt.Sprintf("%v", transit.Trigger.UnderlyingTrigger),
-					nil,
-					transit.SourceState.NodeName,
-					guards,
-				)
-			} else {
-				line = s.FormatOneTransition(
-					transit.SourceState.NodeName,
-					fmt.Sprintf("%v", transit.Trigger.UnderlyingTrigger),
-					actions,
-					transit.SourceState.NodeName,
-					guards,
-				)
-			}
-		} else if transit.DestinationState != nil {
-			// Fixed or dynamic transition
-			var actions []string
-			for _, act := range transit.DestinationEntryActions {
-				actions = append(actions, act.Description())
-			}
-
-			var guards []string
-			for _, g := range transit.Guards {
-				guards = append(guards, g.Description())
-			}
-
-			line = s.FormatOneTransition(
-				transit.SourceState.NodeName,
-				fmt.Sprintf("%v", transit.Trigger.UnderlyingTrigger),
-				actions,
-				transit.DestinationState.NodeName,
-				guards,
-			)
-		}
-
-		if line != "" {
-			lines = append(lines, line)
-		}
-	}
-
-	return lines
+func (s *UmlDotGraphStyle) FormatAllTransitions(
+	transitions []*Transition,
+	_ []*Decision,
+) []string {
+	return FormatTransitions(s, transitions)
 }
 
 // FormatOneTransition formats a single transition.
-func (s *UmlDotGraphStyle) FormatOneTransition(sourceNodeName, trigger string, actions []string, destinationNodeName string, guards []string) string {
+func (s *UmlDotGraphStyle) FormatOneTransition(
+	sourceNodeName, trigger string,
+	actions []string,
+	destinationNodeName string,
+	guards []string,
+) string {
 	var sb strings.Builder
 
 	sb.WriteString(trigger)

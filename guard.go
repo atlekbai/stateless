@@ -12,7 +12,7 @@ type GuardCondition struct {
 // NewGuardCondition creates a new guard condition from a parameterless guard function.
 func NewGuardCondition(guard func() bool, description InvocationInfo) GuardCondition {
 	return GuardCondition{
-		Guard:             func(args any) bool { return guard() },
+		Guard:             func(_ any) bool { return guard() },
 		methodDescription: description,
 	}
 }

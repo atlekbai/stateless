@@ -2,14 +2,13 @@ package graph
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/atlekbai/stateless"
 )
 
-// Test state and trigger types
+// Test state and trigger types.
 type TestState int
 type TestTrigger int
 
@@ -248,63 +247,6 @@ func TestGetDirectionCode(t *testing.T) {
 // =============================================================================
 // DOT Graph Fixture Tests (ported from .NET Stateless)
 // =============================================================================
-
-// Helper functions for building expected DOT graph strings
-
-func dotPrefix() string {
-	return "digraph {\n" +
-		"compound=true;\n" +
-		"node [shape=Mrecord]\n" +
-		"rankdir=\"LR\"\n"
-}
-
-func dotSuffix(initialState string) string {
-	return "\n" +
-		" init [label=\"\", shape=point];\n" +
-		fmt.Sprintf(" init -> \"%s\"[style = \"solid\"]\n", escapeLabel(initialState)) +
-		"}"
-}
-
-func dotBox(label string, entries []string, exits []string) string {
-	var es []string
-	for _, entry := range entries {
-		es = append(es, "entry / "+entry)
-	}
-	for _, exit := range exits {
-		es = append(es, "exit / "+exit)
-	}
-
-	if len(es) == 0 {
-		return fmt.Sprintf("\"%s\" [label=\"%s\"];\n", label, label)
-	}
-	return fmt.Sprintf("\"%s\" [label=\"%s|%s\"];\n", label, label, strings.Join(es, "\\n"))
-}
-
-func dotDecision(nodeName, label string) string {
-	return fmt.Sprintf("\"%s\" [shape = \"diamond\", label = \"%s\"];\n", nodeName, label)
-}
-
-func dotLine(from, to string, label *string) string {
-	s := fmt.Sprintf("\"%s\" -> \"%s\" [style=\"solid\"", from, to)
-	if label != nil {
-		s += fmt.Sprintf(", label=\"%s\"", *label)
-	}
-	s += "];"
-	return s
-}
-
-func dotSubgraph(graphName, label, contents string) string {
-	return "\n" +
-		fmt.Sprintf("subgraph \"cluster%s\"\n", graphName) +
-		"\t{\n" +
-		fmt.Sprintf("\tlabel = \"%s\"\n", label) +
-		contents +
-		"}\n"
-}
-
-func strPtr(s string) *string {
-	return &s
-}
 
 func TestDotGraph_SimpleTransition(t *testing.T) {
 	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)

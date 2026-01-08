@@ -132,7 +132,7 @@ func (sc *StateConfiguration[TState, TTrigger]) PermitDynamic(
 		PossibleDestinationStates:           possibleDestinations,
 	}
 	sc.representation.AddTriggerBehaviour(
-		NewDynamicTriggerBehaviour(trigger, func(args any) TState { return destinationSelector() }, EmptyTransitionGuard, info),
+		NewDynamicTriggerBehaviour(trigger, func(_ any) TState { return destinationSelector() }, EmptyTransitionGuard, info),
 	)
 	return sc
 }
@@ -175,7 +175,7 @@ func (sc *StateConfiguration[TState, TTrigger]) PermitDynamicIf(
 		DestinationStateSelectorDescription: CreateInvocationInfo(destinationSelector, ""),
 	}
 	sc.representation.AddTriggerBehaviour(
-		NewDynamicTriggerBehaviour(trigger, func(args any) TState { return destinationSelector() }, NewTransitionGuard(guard, desc), info),
+		NewDynamicTriggerBehaviour(trigger, func(_ any) TState { return destinationSelector() }, NewTransitionGuard(guard, desc), info),
 	)
 	return sc
 }

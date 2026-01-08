@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// Test state and trigger types
+// Test state and trigger types.
 type State int
 type Trigger int
 
@@ -832,7 +832,7 @@ func TestUnregisterAllCallbacks(t *testing.T) {
 // External storage tests
 
 func TestExternalStorage(t *testing.T) {
-	var externalState State = StateA
+	externalState := StateA
 
 	sm := NewStateMachineWithExternalStorage[State, Trigger](
 		func() State { return externalState },
@@ -2334,52 +2334,52 @@ func TestChildToParentTransition_OnEntryNotFired(t *testing.T) {
 	type Issue98Trigger string
 
 	const (
-		Working   Issue98State   = "Working"
-		SubstateA Issue98State   = "SubstateA"
-		SubstateB Issue98State   = "SubstateB"
-		GoToA     Issue98Trigger = "GoToA"
-		GoToB     Issue98Trigger = "GoToB"
-		ExitA     Issue98Trigger = "ExitA"
+		working   Issue98State   = "Working"
+		substateA Issue98State   = "SubstateA"
+		substateB Issue98State   = "SubstateB"
+		goToA     Issue98Trigger = "GoToA"
+		goToB     Issue98Trigger = "GoToB"
+		exitA     Issue98Trigger = "ExitA"
 	)
 
-	sm := NewStateMachine[Issue98State, Issue98Trigger](Working)
+	sm := NewStateMachine[Issue98State, Issue98Trigger](working)
 
 	var workingEntryCount int
 	var substateAExitCount int
 
-	sm.Configure(Working).
+	sm.Configure(working).
 		OnEntry(func(ctx context.Context, tr Transition[Issue98State, Issue98Trigger]) error {
 			workingEntryCount++
 			return nil
 		}).
-		Permit(GoToA, SubstateA).
-		Permit(GoToB, SubstateB)
+		Permit(goToA, substateA).
+		Permit(goToB, substateB)
 
-	sm.Configure(SubstateA).
-		SubstateOf(Working).
+	sm.Configure(substateA).
+		SubstateOf(working).
 		OnExit(func(ctx context.Context, tr Transition[Issue98State, Issue98Trigger]) error {
 			substateAExitCount++
 			return nil
 		}).
-		Permit(ExitA, Working)
+		Permit(exitA, working)
 
-	sm.Configure(SubstateB).
-		SubstateOf(Working)
+	sm.Configure(substateB).
+		SubstateOf(working)
 
-	// Go to SubstateA
-	if err := sm.Fire(GoToA, nil); err != nil {
+	// Go to substateA
+	if err := sm.Fire(goToA, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Transition from SubstateA back to Working (parent state)
-	if err := sm.Fire(ExitA, nil); err != nil {
+	// Transition from substateA back to working (parent state)
+	if err := sm.Fire(exitA, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	// Current behavior: OnEntry for parent is NOT called when coming from child
 	// This matches qmuntal/stateless and dotnet/stateless behavior
 	if workingEntryCount != 0 {
-		t.Errorf("Current implementation: expected workingEntryCount to be 0 (parent OnEntry not called when transitioning from child), got %d", workingEntryCount)
+		t.Errorf("expected workingEntryCount to be 0 (parent OnEntry not called), got %d", workingEntryCount)
 	}
 
 	// But OnExit for child IS called
@@ -2387,8 +2387,8 @@ func TestChildToParentTransition_OnEntryNotFired(t *testing.T) {
 		t.Errorf("expected substateAExitCount to be 1, got %d", substateAExitCount)
 	}
 
-	// State should be Working
-	if sm.State() != Working {
-		t.Errorf("expected Working, got %v", sm.State())
+	// State should be working
+	if sm.State() != working {
+		t.Errorf("expected working, got %v", sm.State())
 	}
 }

@@ -42,6 +42,7 @@ func (t *triggerBehaviourBase[TState, TTrigger]) UnmetGuardConditions(args any) 
 // TransitioningTriggerBehaviour represents a transition to a fixed destination state.
 type TransitioningTriggerBehaviour[TState, TTrigger comparable] struct {
 	triggerBehaviourBase[TState, TTrigger]
+
 	Destination TState
 }
 
@@ -63,6 +64,7 @@ func NewTransitioningTriggerBehaviour[TState, TTrigger comparable](
 // ReentryTriggerBehaviour represents a reentry transition (state exits and re-enters itself).
 type ReentryTriggerBehaviour[TState, TTrigger comparable] struct {
 	triggerBehaviourBase[TState, TTrigger]
+
 	Destination TState
 }
 
@@ -102,6 +104,7 @@ func NewIgnoredTriggerBehaviour[TState, TTrigger comparable](
 // DynamicTriggerBehaviour represents a transition to a dynamically determined state.
 type DynamicTriggerBehaviour[TState, TTrigger comparable] struct {
 	triggerBehaviourBase[TState, TTrigger]
+
 	destination    func(args any) TState
 	TransitionInfo DynamicTransitionInfo
 }
@@ -137,6 +140,7 @@ type InternalTriggerBehaviour[TState, TTrigger comparable] interface {
 // SyncInternalTriggerBehaviour represents a synchronous internal transition.
 type SyncInternalTriggerBehaviour[TState, TTrigger comparable] struct {
 	triggerBehaviourBase[TState, TTrigger]
+
 	internalAction func(ctx context.Context, transition Transition[TState, TTrigger]) error
 }
 

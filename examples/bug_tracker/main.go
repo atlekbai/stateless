@@ -9,7 +9,7 @@ import (
 	"github.com/atlekbai/stateless"
 )
 
-// Bug states
+// State represents bug states.
 type State int
 
 const (
@@ -29,7 +29,7 @@ func (s State) String() string {
 	return "Unknown"
 }
 
-// Bug triggers
+// Trigger represents bug triggers.
 type Trigger int
 
 const (
@@ -48,7 +48,7 @@ func (t Trigger) String() string {
 	return "Unknown"
 }
 
-// Argument structs for typed transitions
+// AssignArgs contains arguments for the Assign trigger.
 type AssignArgs struct {
 	Assignee string
 }
@@ -57,7 +57,7 @@ type ResolveArgs struct {
 	Resolution string
 }
 
-// Bug represents a bug in the tracker
+// Bug represents a bug in the tracker.
 type Bug struct {
 	ID         int
 	Title      string
@@ -66,7 +66,7 @@ type Bug struct {
 	sm         *stateless.StateMachine[State, Trigger]
 }
 
-// NewBug creates a new bug with the state machine configured
+// NewBug creates a new bug with the state machine configured.
 func NewBug(id int, title string) *Bug {
 	bug := &Bug{
 		ID:    id,

@@ -3,6 +3,7 @@ package stateless
 import (
 	"context"
 	"fmt"
+	"slices"
 )
 
 // StateRepresentation models the behaviour of a state.
@@ -357,7 +358,7 @@ func (sr *StateRepresentation[TState, TTrigger]) GetPermittedTriggers(args any) 
 	if sr.superstate != nil {
 		superTriggers := sr.superstate.GetPermittedTriggers(args)
 		for _, trigger := range superTriggers {
-			if !containsTrigger(result, trigger) {
+			if !slices.Contains(result, trigger) {
 				result = append(result, trigger)
 			}
 		}
@@ -383,14 +384,4 @@ func (sr *StateRepresentation[TState, TTrigger]) GetLocalPermittedTriggers(args 
 // String returns a string representation of this state.
 func (sr *StateRepresentation[TState, TTrigger]) String() string {
 	return fmt.Sprintf("%v", sr.state)
-}
-
-// containsTrigger checks if a trigger is in the slice.
-func containsTrigger[TTrigger comparable](triggers []TTrigger, trigger TTrigger) bool {
-	for _, t := range triggers {
-		if t == trigger {
-			return true
-		}
-	}
-	return false
 }

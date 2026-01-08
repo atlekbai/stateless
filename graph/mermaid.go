@@ -77,85 +77,30 @@ func (s *MermaidGraphStyle) FormatOneCluster(superState *SuperState) string {
 }
 
 // FormatOneState formats a single state (Mermaid doesn't need explicit state definitions).
-func (s *MermaidGraphStyle) FormatOneState(state *State) string {
+func (s *MermaidGraphStyle) FormatOneState(_ *State) string {
 	return ""
 }
 
 // FormatOneDecisionNode formats a decision node.
-func (s *MermaidGraphStyle) FormatOneDecisionNode(nodeName, label string) string {
+func (s *MermaidGraphStyle) FormatOneDecisionNode(nodeName, _ string) string {
 	return fmt.Sprintf("\n\tstate %s <<choice>>", nodeName)
 }
 
 // FormatAllTransitions formats all transitions.
-func (s *MermaidGraphStyle) FormatAllTransitions(transitions []*Transition, decisions []*Decision) []string {
-	var lines []string
-
-	for _, transit := range transitions {
-		var line string
-
-		// Determine if this is a stay transition
-		if transit.SourceState == transit.DestinationState {
-			// Stay transition
-			var actions []string
-			if transit.ExecuteEntryExitActions {
-				for _, act := range transit.DestinationEntryActions {
-					actions = append(actions, act.Description())
-				}
-			}
-
-			var guards []string
-			for _, g := range transit.Guards {
-				guards = append(guards, g.Description())
-			}
-
-			if !transit.ExecuteEntryExitActions {
-				line = s.FormatOneTransition(
-					transit.SourceState.NodeName,
-					fmt.Sprintf("%v", transit.Trigger.UnderlyingTrigger),
-					nil,
-					transit.SourceState.NodeName,
-					guards,
-				)
-			} else {
-				line = s.FormatOneTransition(
-					transit.SourceState.NodeName,
-					fmt.Sprintf("%v", transit.Trigger.UnderlyingTrigger),
-					actions,
-					transit.SourceState.NodeName,
-					guards,
-				)
-			}
-		} else if transit.DestinationState != nil {
-			// Fixed or dynamic transition
-			var actions []string
-			for _, act := range transit.DestinationEntryActions {
-				actions = append(actions, act.Description())
-			}
-
-			var guards []string
-			for _, g := range transit.Guards {
-				guards = append(guards, g.Description())
-			}
-
-			line = s.FormatOneTransition(
-				transit.SourceState.NodeName,
-				fmt.Sprintf("%v", transit.Trigger.UnderlyingTrigger),
-				actions,
-				transit.DestinationState.NodeName,
-				guards,
-			)
-		}
-
-		if line != "" {
-			lines = append(lines, line)
-		}
-	}
-
-	return lines
+func (s *MermaidGraphStyle) FormatAllTransitions(
+	transitions []*Transition,
+	_ []*Decision,
+) []string {
+	return FormatTransitions(s, transitions)
 }
 
 // FormatOneTransition formats a single transition.
-func (s *MermaidGraphStyle) FormatOneTransition(sourceNodeName, trigger string, actions []string, destinationNodeName string, guards []string) string {
+func (s *MermaidGraphStyle) FormatOneTransition(
+	sourceNodeName, trigger string,
+	actions []string,
+	destinationNodeName string,
+	guards []string,
+) string {
 	var sb strings.Builder
 
 	sb.WriteString(trigger)

@@ -39,7 +39,7 @@ func CreateInvocationInfo(fn any, description string) InvocationInfo {
 // Returns:
 // 1. The user-specified description, if any
 // 2. Otherwise, if the method name is compiler-generated, returns DefaultFunctionDescription
-// 3. Otherwise, the method name
+// 3. Otherwise, the method name.
 func (i InvocationInfo) Description() string {
 	if i.description != "" {
 		return i.description
@@ -70,6 +70,7 @@ func getFunctionName(fn any) string {
 // ActionInfo describes an action with optional trigger information.
 type ActionInfo struct {
 	InvocationInfo
+
 	// FromTrigger is the trigger that causes this action to execute (optional).
 	FromTrigger any
 }

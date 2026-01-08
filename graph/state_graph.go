@@ -272,7 +272,7 @@ func (sg *StateGraph) extractExitActionDescriptions(stateInfo *stateless.StateIn
 }
 
 // ToGraph converts the state graph to a string representation using the specified style.
-func (sg *StateGraph) ToGraph(style GraphStyle) string {
+func (sg *StateGraph) ToGraph(style Style) string {
 	var sb strings.Builder
 
 	sb.WriteString(style.GetPrefix())

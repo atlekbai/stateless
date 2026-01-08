@@ -9,7 +9,7 @@ import (
 	"github.com/atlekbai/stateless"
 )
 
-// Phone call states
+// State represents phone call states.
 type State int
 
 const (
@@ -34,7 +34,7 @@ func (s State) String() string {
 	}
 }
 
-// Phone call triggers
+// Trigger represents phone call triggers.
 type Trigger int
 
 const (
