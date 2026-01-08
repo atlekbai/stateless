@@ -119,6 +119,12 @@ sm.Configure(StateA).
     })
 ```
 
+```mermaid
+stateDiagram-v2
+    direction LR
+    StateA --> StateB: TriggerX [Function]
+```
+
 > [!IMPORTANT]
 > Use `stateless.Reject()` for expected guard rejections (business logic). Any other error returned from a guard is treated as an unexpected error and will propagate immediately.
 
@@ -128,12 +134,6 @@ return stateless.Reject("insufficient balance")
 
 // Unexpected error - something went wrong during check
 return fmt.Errorf("database error: %w", err)
-```
-
-```mermaid
-stateDiagram-v2
-    direction LR
-    StateA --> StateB: TriggerX [Function]
 ```
 
 ### Ignored Triggers
@@ -511,10 +511,6 @@ stateDiagram-v2
 
 > [!TIP]
 > This example demonstrates several key features: hierarchical states (OnHold as a substate of Connected), entry actions, transition events, and graph generation. The state machine models a realistic phone call lifecycle with proper state transitions and event handling.
-
-## License
-
-MIT License - see LICENSE file for details.
 
 ## Acknowledgments
 
