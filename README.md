@@ -76,6 +76,42 @@ func main() {
 }
 ```
 
+### Visualizing the State Machine
+
+You can generate a Mermaid diagram to visualize your state machine:
+
+```go
+import (
+    "fmt"
+    "github.com/atlekbai/stateless"
+    "github.com/atlekbai/stateless/graph"
+)
+
+// ... state machine configuration ...
+
+// Generate Mermaid diagram
+mermaidGraph := graph.MermaidGraph(sm.GetInfo(), nil)
+fmt.Println(mermaidGraph)
+```
+
+This produces:
+
+```mermaid
+stateDiagram-v2
+    [*] --> Off
+    Off --> On: Toggle
+    On --> Off: Toggle
+```
+
+You can also customize the diagram direction:
+
+```go
+// Left to right layout
+mermaidGraph := graph.MermaidGraph(sm.GetInfo(), &graph.MermaidGraphOptions{
+    Direction: graph.MermaidDirectionLeftToRight,
+})
+```
+
 ## Configuration
 
 ### Basic Transitions
