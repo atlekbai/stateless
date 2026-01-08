@@ -1,6 +1,7 @@
 package stateless_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/atlekbai/stateless"
@@ -25,7 +26,12 @@ func TestIgnoreIf(t *testing.T) {
 	shouldIgnore := true
 	sm := stateless.NewStateMachine[State, Trigger](StateA)
 	sm.Configure(StateA).
-		IgnoreIf(TriggerX, func(_ any) bool { return shouldIgnore })
+		IgnoreIf(TriggerX, func(_ any) error {
+			if !shouldIgnore {
+				return errors.New("should not ignore")
+			}
+			return nil
+		})
 
 	// Should be ignored
 	if err := sm.Fire(TriggerX, nil); err != nil {
@@ -65,10 +71,10 @@ func TestIgnoredTriggerBehaviour_ExposesCorrectUnderlyingTrigger(t *testing.T) {
 }
 
 func TestIgnoredTriggerBehaviour_WhenGuardConditionFalse_IsGuardConditionMetIsFalse(t *testing.T) {
-	guardFalse := func() bool { return false }
+	guardFalse := func(_ any) error { return errors.New("guard failed") }
 	ignored := stateless.NewIgnoredTriggerBehaviour[State, Trigger](
 		TriggerX,
-		stateless.NewTransitionGuard(guardFalse, ""),
+		stateless.NewTransitionGuard(guardFalse),
 	)
 
 	if ignored.GuardConditionsMet(nil) {
@@ -77,10 +83,10 @@ func TestIgnoredTriggerBehaviour_WhenGuardConditionFalse_IsGuardConditionMetIsFa
 }
 
 func TestIgnoredTriggerBehaviour_WhenGuardConditionTrue_IsGuardConditionMetIsTrue(t *testing.T) {
-	guardTrue := func() bool { return true }
+	guardTrue := func(_ any) error { return nil }
 	ignored := stateless.NewIgnoredTriggerBehaviour[State, Trigger](
 		TriggerX,
-		stateless.NewTransitionGuard(guardTrue, ""),
+		stateless.NewTransitionGuard(guardTrue),
 	)
 
 	if !ignored.GuardConditionsMet(nil) {
@@ -118,7 +124,7 @@ func TestIgnoreIfTrueTriggerMustBeIgnored(t *testing.T) {
 
 	sm.Configure(StateB).
 		SubstateOf(StateA).
-		IgnoreIf(TriggerX, func(_ any) bool { return true })
+		IgnoreIf(TriggerX, func(_ any) error { return nil })
 
 	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -137,7 +143,7 @@ func TestIgnoreIfFalseTriggerMustNotBeIgnored(t *testing.T) {
 
 	sm.Configure(StateB).
 		SubstateOf(StateA).
-		IgnoreIf(TriggerX, func(_ any) bool { return false })
+		IgnoreIf(TriggerX, func(_ any) error { return errors.New("guard failed") })
 
 	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)

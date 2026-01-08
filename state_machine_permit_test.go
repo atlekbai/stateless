@@ -2,6 +2,7 @@ package stateless_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/atlekbai/stateless"
@@ -190,11 +191,11 @@ func TestPermitDynamicIf_With_TriggerParameter_Permits_Transition_When_GuardCond
 				}
 				return StateB
 			},
-			func(args any) bool {
-				if da, ok := args.(DynamicArgs); ok {
-					return da.Value == 1
+			func(args any) error {
+				if da, ok := args.(DynamicArgs); ok && da.Value == 1 {
+					return nil
 				}
-				return false
+				return errors.New("guard failed")
 			},
 		)
 
@@ -223,11 +224,11 @@ func TestPermitDynamicIf_With_2_TriggerParameters_Permits_Transition_When_GuardC
 				}
 				return StateB
 			},
-			func(args any) bool {
-				if da, ok := args.(DynamicArgs2); ok {
-					return da.I == 1 && da.J == 2
+			func(args any) error {
+				if da, ok := args.(DynamicArgs2); ok && da.I == 1 && da.J == 2 {
+					return nil
 				}
-				return false
+				return errors.New("guard failed")
 			},
 		)
 
@@ -257,11 +258,11 @@ func TestPermitDynamicIf_With_3_TriggerParameters_Permits_Transition_When_GuardC
 				}
 				return StateB
 			},
-			func(args any) bool {
-				if da, ok := args.(DynamicArgs3); ok {
-					return da.I == 1 && da.J == 2 && da.K == 3
+			func(args any) error {
+				if da, ok := args.(DynamicArgs3); ok && da.I == 1 && da.J == 2 && da.K == 3 {
+					return nil
 				}
-				return false
+				return errors.New("guard failed")
 			},
 		)
 
@@ -285,11 +286,11 @@ func TestPermitDynamicIf_With_TriggerParameter_Throws_When_GuardCondition_Not_Me
 				}
 				return StateB
 			},
-			func(args any) bool {
-				if da, ok := args.(DynamicArgs); ok {
-					return da.Value == 2
+			func(args any) error {
+				if da, ok := args.(DynamicArgs); ok && da.Value == 2 {
+					return nil
 				}
-				return false
+				return errors.New("guard failed: value must be 2")
 			},
 		)
 
@@ -310,11 +311,11 @@ func TestPermitDynamicIf_With_2_TriggerParameters_Throws_When_GuardCondition_Not
 				}
 				return StateB
 			},
-			func(args any) bool {
-				if da, ok := args.(DynamicArgs2); ok {
-					return da.I == 2 && da.J == 3
+			func(args any) error {
+				if da, ok := args.(DynamicArgs2); ok && da.I == 2 && da.J == 3 {
+					return nil
 				}
-				return false
+				return errors.New("guard failed")
 			},
 		)
 
@@ -335,11 +336,11 @@ func TestPermitDynamicIf_With_3_TriggerParameters_Throws_When_GuardCondition_Not
 				}
 				return StateB
 			},
-			func(args any) bool {
-				if da, ok := args.(DynamicArgs3); ok {
-					return da.I == 2 && da.J == 3 && da.K == 4
+			func(args any) error {
+				if da, ok := args.(DynamicArgs3); ok && da.I == 2 && da.J == 3 && da.K == 4 {
+					return nil
 				}
-				return false
+				return errors.New("guard failed")
 			},
 		)
 
@@ -356,7 +357,7 @@ func TestPermitDynamicIf_Permits_Reentry_When_GuardCondition_Met(t *testing.T) {
 	onEntryFromTriggerXInvoked := false
 
 	sm.Configure(StateA).
-		PermitDynamicIf(TriggerX, func(_ any) State { return StateA }, func(_ any) bool { return true }).
+		PermitDynamicIf(TriggerX, func(_ any) State { return StateA }, func(_ any) error { return nil }).
 		OnEntry(func(ctx context.Context, tr stateless.Transition[State, Trigger]) error {
 			onEntryInvoked = true
 			if tr.Trigger == TriggerX {

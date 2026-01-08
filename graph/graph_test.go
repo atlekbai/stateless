@@ -308,7 +308,7 @@ func TestDotGraph_TwoSimpleTransitions(t *testing.T) {
 }
 
 func TestDotGraph_WhenDiscriminatedByAnonymousGuard(t *testing.T) {
-	anonymousGuard := func(_ any) bool { return true }
+	anonymousGuard := func(_ any) error { return nil }
 
 	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
 	sm.Configure(TestStateA).PermitIf(TestTriggerX, TestStateB, anonymousGuard)
@@ -332,10 +332,10 @@ func TestDotGraph_WhenDiscriminatedByAnonymousGuard(t *testing.T) {
 }
 
 func TestDotGraph_WhenDiscriminatedByAnonymousGuardWithDescription(t *testing.T) {
-	anonymousGuard := func(_ any) bool { return true }
+	anonymousGuard := func(_ any) error { return nil }
 
 	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
-	sm.Configure(TestStateA).PermitIf(TestTriggerX, TestStateB, anonymousGuard, "description")
+	sm.Configure(TestStateA).PermitIf(TestTriggerX, TestStateB, anonymousGuard)
 	sm.Configure(TestStateB)
 
 	dotGraph := graph.UmlDotGraph(sm.GetInfo())
@@ -350,7 +350,7 @@ func TestDotGraph_WhenDiscriminatedByAnonymousGuardWithDescription(t *testing.T)
 	if !strings.Contains(dotGraph, `"A" -> "B"`) {
 		t.Errorf("Expected graph to contain A->B transition, got:\n%s", dotGraph)
 	}
-	if !strings.Contains(dotGraph, `[description]`) {
+	if !strings.Contains(dotGraph, `[`+stateless.DefaultFunctionDescription+`]`) {
 		t.Errorf("Expected graph to contain guard description, got:\n%s", dotGraph)
 	}
 }
@@ -621,26 +621,26 @@ func TestMermaidGraph_TwoSimpleTransitions(t *testing.T) {
 
 func TestMermaidGraph_WhenDiscriminatedByAnonymousGuard(t *testing.T) {
 	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
-	sm.Configure(TestStateA).PermitIf(TestTriggerX, TestStateB, func(_ any) bool { return true }, "anonymousGuard")
+	sm.Configure(TestStateA).PermitIf(TestTriggerX, TestStateB, func(_ any) error { return nil })
 	sm.Configure(TestStateB)
 
 	mermaidGraph := graph.MermaidGraph(sm.GetInfo(), nil)
 
-	// Should contain transition with guard
-	if !strings.Contains(mermaidGraph, "A --> B : X [anonymousGuard]") {
+	// Should contain transition with guard (using default function description)
+	if !strings.Contains(mermaidGraph, "A --> B : X ["+stateless.DefaultFunctionDescription+"]") {
 		t.Errorf("Expected graph to contain guarded transition, got:\n%s", mermaidGraph)
 	}
 }
 
 func TestMermaidGraph_WhenDiscriminatedByAnonymousGuardWithDescription(t *testing.T) {
 	sm := stateless.NewStateMachine[TestState, TestTrigger](TestStateA)
-	sm.Configure(TestStateA).PermitIf(TestTriggerX, TestStateB, func(_ any) bool { return true }, "description")
+	sm.Configure(TestStateA).PermitIf(TestTriggerX, TestStateB, func(_ any) error { return nil })
 	sm.Configure(TestStateB)
 
 	mermaidGraph := graph.MermaidGraph(sm.GetInfo(), nil)
 
-	// Should contain transition with guard description
-	if !strings.Contains(mermaidGraph, "A --> B : X [description]") {
+	// Should contain transition with guard (using default function description)
+	if !strings.Contains(mermaidGraph, "A --> B : X ["+stateless.DefaultFunctionDescription+"]") {
 		t.Errorf("Expected graph to contain guarded transition with description, got:\n%s", mermaidGraph)
 	}
 }

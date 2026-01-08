@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 
@@ -101,9 +102,12 @@ func NewBug(id int, title string) *Bug {
 			fmt.Printf("  Work started on bug #%d\n", bug.ID)
 			return nil
 		}).
-		PermitIf(Resolve, Resolved, func(_ any) bool {
-			return bug.Assignee != ""
-		}, "Must have an assignee to resolve")
+		PermitIf(Resolve, Resolved, func(_ any) error {
+			if bug.Assignee == "" {
+				return errors.New("must have an assignee to resolve")
+			}
+			return nil
+		})
 
 	// Configure Resolved state with typed entry action using type assertion
 	bug.sm.Configure(Resolved).

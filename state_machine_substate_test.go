@@ -2,6 +2,7 @@ package stateless_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/atlekbai/stateless"
@@ -83,11 +84,16 @@ func TestSubstateTransition_GuardBlocked_UsesSuperstateTransition(t *testing.T) 
 	sm := stateless.NewStateMachine[State, Trigger](StateB)
 
 	sm.Configure(StateA).
-		PermitIf(TriggerX, StateD, func(_ any) bool { return true })
+		PermitIf(TriggerX, StateD, func(_ any) error { return nil })
 
 	sm.Configure(StateB).
 		SubstateOf(StateA).
-		PermitIf(TriggerX, StateC, func(_ any) bool { return guardConditionValue })
+		PermitIf(TriggerX, StateC, func(_ any) error {
+			if !guardConditionValue {
+				return errors.New("guard blocked")
+			}
+			return nil
+		})
 
 	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -103,11 +109,16 @@ func TestSubstateTransition_GuardOpen_UsesSubstateTransition(t *testing.T) {
 	sm := stateless.NewStateMachine[State, Trigger](StateB)
 
 	sm.Configure(StateA).
-		PermitIf(TriggerX, StateD, func(_ any) bool { return true })
+		PermitIf(TriggerX, StateD, func(_ any) error { return nil })
 
 	sm.Configure(StateB).
 		SubstateOf(StateA).
-		PermitIf(TriggerX, StateC, func(_ any) bool { return guardConditionValue })
+		PermitIf(TriggerX, StateC, func(_ any) error {
+			if !guardConditionValue {
+				return errors.New("guard blocked")
+			}
+			return nil
+		})
 
 	if err := sm.Fire(TriggerX, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -140,15 +151,30 @@ func TestMultiLayerSubstates_GuardFallthrough(t *testing.T) {
 			sm := stateless.NewStateMachine[string, Trigger]("GrandchildState")
 
 			sm.Configure("ParentState").
-				PermitIf(TriggerX, "ParentStateTarget", func(_ any) bool { return tc.parentGuard })
+				PermitIf(TriggerX, "ParentStateTarget", func(_ any) error {
+					if !tc.parentGuard {
+						return errors.New("parent guard blocked")
+					}
+					return nil
+				})
 
 			sm.Configure("ChildState").
 				SubstateOf("ParentState").
-				PermitIf(TriggerX, "ChildStateTarget", func(_ any) bool { return tc.childGuard })
+				PermitIf(TriggerX, "ChildStateTarget", func(_ any) error {
+					if !tc.childGuard {
+						return errors.New("child guard blocked")
+					}
+					return nil
+				})
 
 			sm.Configure("GrandchildState").
 				SubstateOf("ChildState").
-				PermitIf(TriggerX, "GrandchildStateTarget", func(_ any) bool { return tc.grandchildGuard })
+				PermitIf(TriggerX, "GrandchildStateTarget", func(_ any) error {
+					if !tc.grandchildGuard {
+						return errors.New("grandchild guard blocked")
+					}
+					return nil
+				})
 
 			if err := sm.Fire(TriggerX, nil); err != nil {
 				t.Fatalf("unexpected error: %v", err)

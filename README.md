@@ -87,16 +87,24 @@ sm.Configure(StateA).
 
 ### Conditional Transitions (Guards)
 
+Guards return `nil` if the transition should proceed, or an error describing why it's blocked:
+
 ```go
 sm.Configure(StateA).
-    PermitIf(TriggerX, StateB, func(args any) bool {
-        return someCondition
-    }, "Guard description")
+    PermitIf(TriggerX, StateB, func(args any) error {
+        if !someCondition {
+            return errors.New("condition not met")
+        }
+        return nil
+    })
 
 // If you don't need args, just ignore them:
 sm.Configure(StateA).
-    PermitIf(TriggerX, StateB, func(_ any) bool {
-        return someCondition
+    PermitIf(TriggerX, StateB, func(_ any) error {
+        if !someCondition {
+            return errors.New("condition not met")
+        }
+        return nil
     })
 ```
 
